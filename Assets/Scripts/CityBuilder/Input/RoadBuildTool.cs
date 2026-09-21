@@ -51,6 +51,9 @@ namespace CityBuilder.BuildTools
         public bool IsDragging => _dragging;
         public bool DiagonalFirst => _diagonalFirst;
 
+        /// <summary>True when the stroke in progress overlaps road it does not join and cannot be built.</summary>
+        public bool IsBlocked { get; private set; }
+
         /// <summary>Cells the stroke in progress would add, or remove when erasing.</summary>
         public int PendingCellCount => !_dragging ? 0 : _erasing ? _preview.Removed.Count : _preview.Added.Count;
 
@@ -165,7 +168,8 @@ namespace CityBuilder.BuildTools
         void ShowGhost()
         {
             RoadStroke.Plan(_roads.Network, _path, _erasing, _preview);
-            _ghost?.Show(_roads.Network, _preview, _grid.Profile, _erasing);
+            IsBlocked = !_erasing && RoadStroke.IsBlocked(_roads.Network, _preview);
+            _ghost?.Show(_roads.Network, _preview, _grid.Profile, _erasing, IsBlocked);
         }
 
         void CancelDrag()

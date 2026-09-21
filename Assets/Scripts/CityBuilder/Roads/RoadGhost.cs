@@ -17,6 +17,9 @@ namespace CityBuilder.Roads
         [SerializeField] Material _buildMaterial;
         [SerializeField] Material _eraseMaterial;
 
+        [Tooltip("Shown when the stroke would overlap road it does not join, and so cannot be built.")]
+        [SerializeField] Material _blockedMaterial;
+
         [Tooltip("Lifts the preview clear of committed road so the two do not z-fight.")]
         [SerializeField] float _zOffset = 0.004f;
 
@@ -45,8 +48,9 @@ namespace CityBuilder.Roads
         /// Shows a planned stroke against <paramref name="network"/>. In erase mode the removed cells
         /// are highlighted; otherwise the ghost draws every new cell plus any existing cell the
         /// stroke joins, so a junction forming on committed road is visible before release.
+        /// <paramref name="blocked"/> tints the preview to say release will do nothing.
         /// </summary>
-        public void Show(RoadNetwork network, RoadEdit edit, RoadProfile profile, bool erase)
+        public void Show(RoadNetwork network, RoadEdit edit, RoadProfile profile, bool erase, bool blocked = false)
         {
             if (edit == null || edit.IsEmpty)
             {
@@ -87,7 +91,9 @@ namespace CityBuilder.Roads
 
             RoadMeshBuilder.Build(_mesh, query, _visible, profile);
 
-            Material material = erase ? _eraseMaterial : _buildMaterial;
+            Material material = erase ? _eraseMaterial
+                              : blocked ? (_blockedMaterial != null ? _blockedMaterial : _eraseMaterial)
+                              : _buildMaterial;
             if (material != null) _renderer.sharedMaterial = material;
 
             transform.position = new Vector3(0f, _zOffset, 0f);

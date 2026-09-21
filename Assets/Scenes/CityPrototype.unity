@@ -663,6 +663,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.Roads.RoadGhost
   _buildMaterial: {fileID: 2100000, guid: 00722ea1845fb304ebb0a27428129a77, type: 2}
   _eraseMaterial: {fileID: 2100000, guid: 3b45eb2de6dcb7b49bb45a94882f7365, type: 2}
+  _blockedMaterial: {fileID: 2100000, guid: 483f673bacb6402c8360d6e596af975f, type: 2}
   _zOffset: 0.004
 --- !u!23 &1798993889
 MeshRenderer:

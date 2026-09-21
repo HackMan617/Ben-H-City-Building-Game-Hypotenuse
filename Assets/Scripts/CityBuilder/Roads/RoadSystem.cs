@@ -50,7 +50,7 @@ namespace CityBuilder.Roads
         /// <summary>
         /// Commits a stroke along <paramref name="cells"/>. <paramref name="erase"/> removes instead
         /// of adding. Anything already in the requested state is dropped, so the recorded edit is the
-        /// real delta.
+        /// real delta. A stroke that would overlap road it does not join is refused outright.
         /// </summary>
         public void ApplyStroke(IReadOnlyList<GridCoord> cells, bool erase)
         {
@@ -58,7 +58,7 @@ namespace CityBuilder.Roads
 
             var edit = new RoadEdit();
             RoadStroke.Plan(Network, cells, erase, edit, _grid.InBounds);
-            if (edit.IsEmpty) return;
+            if (edit.IsEmpty || RoadStroke.IsBlocked(Network, edit)) return;
 
             edit.Apply(Network);
             History.Record(edit);

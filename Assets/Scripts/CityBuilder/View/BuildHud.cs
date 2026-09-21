@@ -27,7 +27,7 @@ namespace CityBuilder.View
             EnsureStyles();
 
             const float width = 260f;
-            var rect = new Rect(16f, 16f, width, 212f);
+            var rect = new Rect(16f, 16f, width, 228f);
             GUI.Box(rect, GUIContent.none, _panel);
 
             GUILayout.BeginArea(new Rect(rect.x + 14f, rect.y + 12f, width - 28f, rect.height - 24f));
@@ -43,10 +43,12 @@ namespace CityBuilder.View
             GUILayout.Label("G              grid lines", _label);
 
             GUILayout.Space(8f);
-            int committed = _roads != null ? _roads.Network.Count : 0;
+            int committed = _roads != null && _roads.Network != null ? _roads.Network.Count : 0;
             int pending = _tool != null ? _tool.PendingCellCount : 0;
             GUILayout.Label(pending > 0 ? $"{committed} cells  (+{pending} pending)" : $"{committed} cells", _label);
-            if (_tool != null && _tool.IsDragging && _tool.PathMode == PathMode.ElbowWithDiagonal)
+            if (_tool != null && _tool.IsDragging && _tool.IsBlocked)
+                GUILayout.Label("Blocked: overlaps a road it doesn't join", _label);
+            else if (_tool != null && _tool.IsDragging && _tool.PathMode == PathMode.ElbowWithDiagonal)
                 GUILayout.Label(_tool.DiagonalFirst ? "Diagonal first" : "Straight first", _label);
 
             GUILayout.EndArea();

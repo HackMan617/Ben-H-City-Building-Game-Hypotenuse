@@ -52,6 +52,7 @@ namespace CityBuilder.EditorTools
 
             Material ghostBuild = MakeGhost(ghostShader, MaterialFolder + "/GhostBuild.mat", new Color(0.35f, 0.90f, 0.72f, 0.50f));
             Material ghostErase = MakeGhost(ghostShader, MaterialFolder + "/GhostErase.mat", new Color(1.00f, 0.36f, 0.30f, 0.50f));
+            Material ghostBlocked = MakeGhost(ghostShader, MaterialFolder + "/GhostBlocked.mat", new Color(0.85f, 0.10f, 0.16f, 0.38f));
 
             Shader gridShader = Shader.Find("CityBuilder/GridGround");
             if (gridShader == null)
@@ -92,6 +93,7 @@ namespace CityBuilder.EditorTools
             ghostRenderer.receiveShadows = false;
             Wire(ghost, "_buildMaterial", ghostBuild);
             Wire(ghost, "_eraseMaterial", ghostErase);
+            Wire(ghost, "_blockedMaterial", ghostBlocked);
 
             var camGo = new GameObject("Build Camera", typeof(Camera));
             camGo.tag = "MainCamera";

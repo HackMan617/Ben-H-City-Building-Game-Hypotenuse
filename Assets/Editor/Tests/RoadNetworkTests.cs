@@ -190,13 +190,95 @@ namespace CityBuilder.Tests
         [Test]
         public void DiagonalBesideAnUnlinkedPair_IsNotACrossing()
         {
-            // (1,0) and (0,1) are road but not joined to each other, so nothing crosses.
+            // (1,0) and (0,1) are road but not joined to each other, so nothing crosses and no
+            // junction is filled in -- the stroke is refused instead, see the overlap tests below.
             var network = NetworkWithStroke(C(1, 0));
             Stroke(network, C(0, 1));
-            Stroke(network, C(0, 0), C(1, 1));
 
-            Assert.AreEqual(Dir8.NE, network.MaskAt(C(0, 0)));
-            Assert.AreEqual(Dir8.None, network.MaskAt(C(1, 0)));
+            RoadEdit edit = Plan(network, C(0, 0), C(1, 1));
+            Assert.AreEqual(1, edit.Linked.Count, "just the diagonal itself");
+            Assert.IsTrue(RoadStroke.IsBlocked(network, edit));
+        }
+
+        // ---- Overlap blocking -------------------------------------------------------------------
+
+        static RoadEdit Plan(RoadNetwork network, params GridCoord[] path)
+        {
+            var edit = new RoadEdit();
+            RoadStroke.Plan(network, path, false, edit);
+            return edit;
+        }
+
+        [Test]
+        public void ParallelDiagonalsOneCellApart_AreBlocked()
+        {
+            // Centre lines 0.71 cells apart, road 0.82 wide: they would overlap.
+            var network = NetworkWithStroke(C(0, 0), C(1, 1), C(2, 2));
+
+            Assert.IsTrue(RoadStroke.IsBlocked(network, Plan(network, C(1, 0), C(2, 1), C(3, 2))), "offset east");
+            Assert.IsTrue(RoadStroke.IsBlocked(network, Plan(network, C(0, 1), C(1, 2), C(2, 3))), "offset north");
+        }
+
+        [Test]
+        public void ParallelDiagonalsTwoCellsApart_AreAllowed()
+        {
+            var network = NetworkWithStroke(C(0, 0), C(1, 1), C(2, 2));
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(2, 0), C(3, 1), C(4, 2))));
+        }
+
+        [Test]
+        public void DiagonalBrushingAnUnjoinedStraight_IsBlockedWhicheverIsDrawnFirst()
+        {
+            // (1,0) sits beside the diagonal step (0,0)->(1,1) without joining it.
+            var straightFirst = NetworkWithStroke(C(1, 0), C(2, 0), C(3, 0));
+            Assert.IsTrue(RoadStroke.IsBlocked(straightFirst, Plan(straightFirst, C(0, 0), C(1, 1), C(2, 2))));
+
+            var diagonalFirst = NetworkWithStroke(C(0, 0), C(1, 1), C(2, 2));
+            Assert.IsTrue(RoadStroke.IsBlocked(diagonalFirst, Plan(diagonalFirst, C(1, 0), C(2, 0), C(3, 0))));
+            Assert.IsTrue(RoadStroke.IsBlocked(diagonalFirst, Plan(diagonalFirst, C(1, 0))), "even a single cell");
+        }
+
+        [Test]
+        public void DiagonalJoiningOrCrossingAStraight_IsAllowed()
+        {
+            var network = NetworkWithStroke(C(-1, 1), C(0, 1), C(1, 1), C(2, 1), C(3, 1));
+
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(0, 0), C(1, 1))), "ending on it");
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(0, 0), C(1, 1), C(2, 2))), "crossing it");
+        }
+
+        [Test]
+        public void DiagonalForkingOffAStraight_IsAllowed()
+        {
+            var network = NetworkWithStroke(C(0, -2), C(0, -1), C(0, 0), C(0, 1), C(0, 2));
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(0, 0), C(1, 1), C(2, 2))));
+        }
+
+        [Test]
+        public void DiagonalsCrossingAtACorner_AreAllowed()
+        {
+            // The filled-in junction joins every cell, so nothing is left overlapping unjoined road.
+            var network = NetworkWithStroke(C(-1, -1), C(0, 0), C(1, 1), C(2, 2));
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(2, -1), C(1, 0), C(0, 1), C(-1, 2))));
+        }
+
+        [Test]
+        public void Erasing_IsNeverBlocked()
+        {
+            var network = NetworkWithStroke(C(0, 0), C(1, 1), C(2, 2));
+            var edit = new RoadEdit();
+            RoadStroke.Plan(network, new[] { C(1, 1) }, true, edit);
+            Assert.IsFalse(RoadStroke.IsBlocked(network, edit));
+        }
+
+        [Test]
+        public void ExistingOverlapElsewhere_DoesNotBlockAnUnrelatedStroke()
+        {
+            // An overlap already in the network (built by hand here) is none of this stroke's business.
+            var network = NetworkWithStroke(C(0, 0), C(1, 1));
+            Stroke(network, C(1, 0));
+
+            Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(10, 10), C(11, 10))));
         }
 
         [Test]
