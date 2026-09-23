@@ -36,7 +36,8 @@ namespace CityBuilder.View
             GUILayout.Space(6f);
             GUILayout.Label("Left drag      draw road", _label);
             GUILayout.Label("Right drag     erase", _label);
-            GUILayout.Label("F              flip elbow order", _label);
+            if (_tool == null || !_tool.IsFreehand)
+                GUILayout.Label("F              flip elbow order", _label);
             GUILayout.Label("Middle drag    pan", _label);
             GUILayout.Label("Scroll         zoom", _label);
             GUILayout.Label("Ctrl+Z / Y     undo / redo", _label);

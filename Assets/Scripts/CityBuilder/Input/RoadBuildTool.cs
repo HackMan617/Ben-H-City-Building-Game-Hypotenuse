@@ -9,12 +9,13 @@ namespace CityBuilder.BuildTools
     /// <summary>
     /// Click-drag road drawing.
     ///
-    /// Press to drop an anchor, drag to aim, release to commit. The run between anchor and cursor is
-    /// snapped to a legal shape rather than tracing the pointer, which is what gives the tool its
-    /// deliberate feel -- see <see cref="RoadPathResolver"/>.
+    /// Press to drop an anchor, drag, release to commit. In freehand mode the road follows the
+    /// pointer, straight or diagonal, and backing up over it reels it in -- see
+    /// <see cref="FreehandPath"/>. The other modes snap the run between anchor and cursor to a
+    /// fixed shape instead -- see <see cref="RoadPathResolver"/>.
     ///
     ///   left button   draw        right button  erase
-    ///   F             flip which leg of a diagonal elbow comes first
+    ///   F             flip which leg of a diagonal elbow comes first (elbow mode only)
     ///   Ctrl+Z        undo        Ctrl+Y        redo
     ///   Escape        cancel the stroke in progress
     /// </summary>
@@ -26,10 +27,11 @@ namespace CityBuilder.BuildTools
         [SerializeField] Camera _camera;
 
         [Tooltip("How a drag between two cells is resolved.")]
-        [SerializeField] PathMode _pathMode = PathMode.ElbowWithDiagonal;
+        [SerializeField] PathMode _pathMode = PathMode.Freehand;
 
         readonly List<GridCoord> _path = new List<GridCoord>();
         readonly RoadEdit _preview = new RoadEdit();
+        readonly FreehandPath _trace = new FreehandPath();
 
         bool _dragging;
         bool _erasing;
@@ -49,6 +51,7 @@ namespace CityBuilder.BuildTools
         }
 
         public bool IsDragging => _dragging;
+        public bool IsFreehand => _pathMode == PathMode.Freehand;
         public bool DiagonalFirst => _diagonalFirst;
 
         /// <summary>True when the stroke in progress overlaps road it does not join and cannot be built.</summary>
@@ -74,9 +77,17 @@ namespace CityBuilder.BuildTools
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
-            bool onGround = _grid.TryScreenToCell(_camera, mouse.position.ReadValue(), out GridCoord cursor);
+            bool onPlane = _grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world);
+            GridCoord cursor = onPlane ? _grid.WorldToCell(world) : default;
+            bool onGround = onPlane && _grid.InBounds(cursor);
 
-            if (_dragging) UpdateDrag(mouse, onGround, cursor);
+            if (_dragging)
+            {
+                // Freehand follows the pointer even past the edge, stopping at the last cell in bounds.
+                if (IsFreehand) UpdateTrace(onPlane, world);
+                else UpdateSnapped(onGround, cursor);
+                UpdateRelease(mouse);
+            }
             else UpdateIdle(mouse, onGround, cursor);
         }
 
@@ -99,6 +110,7 @@ namespace CityBuilder.BuildTools
                 _lastCursor = cursor;
                 _preferHorizontalFirst = true;
                 _diagonalFirst = true;
+                _trace.Begin(cursor);
                 ResolvePath(cursor);
                 ShowGhost();
                 return;
@@ -111,7 +123,28 @@ namespace CityBuilder.BuildTools
             ShowGhost();
         }
 
-        void UpdateDrag(Mouse mouse, bool onGround, GridCoord cursor)
+        /// <summary>Freehand: extend or reel in the traced path as the pointer moves.</summary>
+        void UpdateTrace(bool onPlane, Vector3 world)
+        {
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                CancelDrag();
+                return;
+            }
+
+            // Off the ground plane (cursor above the horizon) the path simply stops growing.
+            if (!onPlane) return;
+
+            var point = new Vector2(world.x, world.z) / _grid.CellSize;
+            if (!_trace.Follow(point, _grid.InBounds)) return;
+
+            _path.Clear();
+            _path.AddRange(_trace.Cells);
+            ShowGhost();
+        }
+
+        /// <summary>Elbow and straight modes: re-snap the whole run from the anchor to the cursor cell.</summary>
+        void UpdateSnapped(bool onGround, GridCoord cursor)
         {
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -132,6 +165,12 @@ namespace CityBuilder.BuildTools
                 ResolvePath(_lastCursor);
                 ShowGhost();
             }
+        }
+
+        /// <summary>Commits whatever the ghost is showing once the button that started the drag lets go.</summary>
+        void UpdateRelease(Mouse mouse)
+        {
+            if (!_dragging) return;
 
             bool released = _erasing
                 ? mouse.rightButton.wasReleasedThisFrame
@@ -139,17 +178,24 @@ namespace CityBuilder.BuildTools
 
             if (!released) return;
 
-            ResolvePath(_lastCursor);
             _roads.ApplyStroke(_path, _erasing);
 
             _dragging = false;
             _path.Clear();
             _preview.Clear();
+            _trace.Clear();
             _ghost?.Hide();
         }
 
         void ResolvePath(GridCoord cursor)
         {
+            if (IsFreehand)
+            {
+                _path.Clear();
+                _path.AddRange(_trace.Cells);
+                return;
+            }
+
             int dx = cursor.X - _anchor.X;
             int dz = cursor.Z - _anchor.Z;
 
@@ -177,6 +223,7 @@ namespace CityBuilder.BuildTools
             _dragging = false;
             _path.Clear();
             _preview.Clear();
+            _trace.Clear();
             _ghost?.Hide();
         }
 
