@@ -768,7 +768,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.Grid.CityGrid
   _profile:
     CellSize: 1
-    WidthFraction: 0.82
+    WidthFraction: 1
     Height: 0.06
   _halfExtent: 60
 --- !u!4 &1955335907

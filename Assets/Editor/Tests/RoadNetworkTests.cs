@@ -212,7 +212,7 @@ namespace CityBuilder.Tests
         [Test]
         public void ParallelDiagonalsOneCellApart_AreBlocked()
         {
-            // Centre lines 0.71 cells apart, road 0.82 wide: they would overlap.
+            // Centre lines 0.71 cells apart, road a full cell wide: they would overlap.
             var network = NetworkWithStroke(C(0, 0), C(1, 1), C(2, 2));
 
             Assert.IsTrue(RoadStroke.IsBlocked(network, Plan(network, C(1, 0), C(2, 1), C(3, 2))), "offset east");

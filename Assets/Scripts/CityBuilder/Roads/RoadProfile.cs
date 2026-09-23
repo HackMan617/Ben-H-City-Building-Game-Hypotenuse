@@ -22,7 +22,7 @@ namespace CityBuilder.Roads
         public static RoadProfile Default => new RoadProfile
         {
             CellSize = 1f,
-            WidthFraction = 0.82f,
+            WidthFraction = 1f,
             Height = 0.06f,
         };
     }
