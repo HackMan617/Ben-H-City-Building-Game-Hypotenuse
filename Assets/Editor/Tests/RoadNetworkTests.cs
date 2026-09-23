@@ -170,28 +170,26 @@ namespace CityBuilder.Tests
         }
 
         [Test]
-        public void DiagonalsCrossingAtACorner_JoinAllFourCells()
+        public void DiagonalsCrossingAtACorner_CrossWithoutFillingTheBlock()
         {
             var network = NetworkWithStroke(C(0, 0), C(1, 1));
             RoadEdit edit = Stroke(network, C(1, 0), C(0, 1));
 
-            Assert.IsTrue(network.Has(C(1, 0)) && network.Has(C(0, 1)));
+            // An X like any crossroads: each cell keeps just its own diagonal, no links round the block.
             Assert.AreEqual(4, network.Count);
+            Assert.AreEqual(Dir8.NE, network.MaskAt(C(0, 0)));
+            Assert.AreEqual(Dir8.NW, network.MaskAt(C(1, 0)));
+            Assert.AreEqual(Dir8.SW, network.MaskAt(C(1, 1)));
+            Assert.AreEqual(Dir8.SE, network.MaskAt(C(0, 1)));
 
-            // Every cell is joined to both block neighbours and keeps its own diagonal.
-            Assert.AreEqual(Dir8.N | Dir8.E | Dir8.NE, network.MaskAt(C(0, 0)));
-            Assert.AreEqual(Dir8.N | Dir8.W | Dir8.NW, network.MaskAt(C(1, 0)));
-            Assert.AreEqual(Dir8.S | Dir8.W | Dir8.SW, network.MaskAt(C(1, 1)));
-            Assert.AreEqual(Dir8.S | Dir8.E | Dir8.SE, network.MaskAt(C(0, 1)));
-
-            Assert.AreEqual(5, edit.Linked.Count, "the new diagonal plus four links round the block");
+            Assert.AreEqual(1, edit.Linked.Count, "just the new diagonal");
         }
 
         [Test]
         public void DiagonalBesideAnUnlinkedPair_IsNotACrossing()
         {
-            // (1,0) and (0,1) are road but not joined to each other, so nothing crosses and no
-            // junction is filled in -- the stroke is refused instead, see the overlap tests below.
+            // (1,0) and (0,1) are road but not joined to each other, so nothing crosses -- the
+            // stroke is refused instead, see the overlap tests below.
             var network = NetworkWithStroke(C(1, 0));
             Stroke(network, C(0, 1));
 
@@ -257,7 +255,7 @@ namespace CityBuilder.Tests
         [Test]
         public void DiagonalsCrossingAtACorner_AreAllowed()
         {
-            // The filled-in junction joins every cell, so nothing is left overlapping unjoined road.
+            // Each diagonal only overlaps the other one where they cross, which is the intersection.
             var network = NetworkWithStroke(C(-1, -1), C(0, 0), C(1, 1), C(2, 2));
             Assert.IsFalse(RoadStroke.IsBlocked(network, Plan(network, C(2, -1), C(1, 0), C(0, 1), C(-1, 2))));
         }
@@ -489,6 +487,31 @@ namespace CityBuilder.Tests
                 Vector2 p = new Vector2(v.x, v.z) - origin;
                 float offAxis = Mathf.Abs(p.x * axis.y - p.y * axis.x);
                 Assert.LessOrEqual(offAxis, profile.HalfRoad + 1e-4f, $"vertex {v} pokes out of the road");
+            }
+
+            Object.DestroyImmediate(mesh);
+        }
+
+        [Test]
+        public void MeshBuilder_CornerCrossingIsAnXOfTwoStrips()
+        {
+            var network = NetworkWithStroke(C(-1, -1), C(0, 0), C(1, 1), C(2, 2));
+            Stroke(network, C(2, -1), C(1, 0), C(0, 1), C(-1, 2));
+            Mesh mesh = BuildMesh(network);
+
+            // Every vertex lies within one of the two crossing roads: nothing fills in the block.
+            RoadProfile profile = RoadProfile.Default;
+            var corner = new Vector2(1f, 1f) * profile.CellSize;
+            var rising = new Vector2(1f, 1f).normalized;
+            var falling = new Vector2(-1f, 1f).normalized;
+
+            foreach (Vector3 v in mesh.vertices)
+            {
+                Vector2 p = new Vector2(v.x, v.z) - corner;
+                float offRising = Mathf.Abs(p.x * rising.y - p.y * rising.x);
+                float offFalling = Mathf.Abs(p.x * falling.y - p.y * falling.x);
+                Assert.LessOrEqual(Mathf.Min(offRising, offFalling), profile.HalfRoad + 1e-4f,
+                                   $"vertex {v} fills in the crossing");
             }
 
             Object.DestroyImmediate(mesh);

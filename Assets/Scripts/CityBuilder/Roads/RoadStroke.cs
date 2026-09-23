@@ -71,30 +71,7 @@ namespace CityBuilder.Roads
                 if (!RoadLink.TryBetween(previous, cell, out RoadLink step)) continue;
 
                 AddLink(network, step, into);
-                if (step.IsDiagonal) JoinCornerCrossing(network, previous, cell, into);
             }
-        }
-
-        /// <summary>
-        /// A diagonal step from <paramref name="a"/> to <paramref name="b"/> crosses the other
-        /// diagonal of the same 2x2 block at the shared cell corner. When that other diagonal is
-        /// already road, the two would cross with no cell in common -- overlapping but unconnected.
-        /// Instead, all four cells become road and join around the block, so the crossing is a
-        /// real junction.
-        /// </summary>
-        static void JoinCornerCrossing(IRoadQuery network, GridCoord a, GridCoord b, RoadEdit into)
-        {
-            var c = new GridCoord(b.X, a.Z);
-            var d = new GridCoord(a.X, b.Z);
-            if (!RoadLink.TryBetween(c, d, out RoadLink crossing)) return;
-            if (!IsLinked(network, crossing)) return;
-
-            AddCell(network, c, into);
-            AddCell(network, d, into);
-            AddLink(network, a, c, into);
-            AddLink(network, c, b, into);
-            AddLink(network, b, d, into);
-            AddLink(network, d, a, into);
         }
 
         /// <summary>
@@ -103,8 +80,9 @@ namespace CityBuilder.Roads
         ///
         /// A diagonal step from a to b is wide enough to spill over the corners of the other two
         /// cells in its 2x2 block, c and d. Road in c or d is fine when it is joined to a or b -- that
-        /// is a junction, and the overlap reads as one -- but anything else would merge visually
-        /// with the diagonal without being connected to it. That covers two parallel diagonals one
+        /// is a junction, and the overlap reads as one -- and so is the other diagonal c-d, which
+        /// crosses a-b at the shared cell corner as an X intersection. Anything else would merge
+        /// visually with the diagonal without being connected to it. That covers two parallel diagonals one
         /// cell apart as well as a diagonal brushing past the corner of a straight road.
         ///
         ///     d  b        a-b  the diagonal
@@ -159,7 +137,14 @@ namespace CityBuilder.Roads
         {
             GridCoord a = diagonal.Cell;
             GridCoord b = diagonal.Other;
-            return Intrudes(query, new GridCoord(b.X, a.Z), a, b) || Intrudes(query, new GridCoord(a.X, b.Z), a, b);
+            var c = new GridCoord(b.X, a.Z);
+            var d = new GridCoord(a.X, b.Z);
+
+            // Two full-width diagonals at right angles cross in an X, the 45-degree twin of an
+            // orthogonal crossroads, so the crossing needs no extra cells or links to read as one.
+            if (Joined(query, c, d)) return false;
+
+            return Intrudes(query, c, a, b) || Intrudes(query, d, a, b);
         }
 
         static bool Intrudes(IRoadQuery query, GridCoord cell, GridCoord a, GridCoord b) =>
@@ -168,16 +153,9 @@ namespace CityBuilder.Roads
         static bool Joined(IRoadQuery query, GridCoord x, GridCoord y) =>
             RoadLink.TryBetween(x, y, out RoadLink link) && link.IsIn(query);
 
-        static bool IsLinked(IRoadQuery network, RoadLink link) => link.IsIn(network) || SeenLinks.Contains(link);
-
         static void AddCell(IRoadQuery network, GridCoord cell, RoadEdit into)
         {
             if (!network.Has(cell) && SeenCells.Add(cell)) into.Added.Add(cell);
-        }
-
-        static void AddLink(IRoadQuery network, GridCoord a, GridCoord b, RoadEdit into)
-        {
-            if (RoadLink.TryBetween(a, b, out RoadLink link)) AddLink(network, link, into);
         }
 
         static void AddLink(IRoadQuery network, RoadLink link, RoadEdit into)
