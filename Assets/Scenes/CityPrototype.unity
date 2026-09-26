@@ -275,7 +275,6 @@ MonoBehaviour:
   _roads: {fileID: 1483250039}
   _ghost: {fileID: 1798993888}
   _camera: {fileID: 154525282}
-  _pathMode: 2
 --- !u!4 &209187551
 Transform:
   m_ObjectHideFlags: 0

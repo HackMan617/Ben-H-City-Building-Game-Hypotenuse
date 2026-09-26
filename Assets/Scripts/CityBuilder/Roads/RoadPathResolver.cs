@@ -17,12 +17,6 @@ namespace CityBuilder.Roads
         /// by one 135-degree turn -- the metromapmaker shape. Which comes first is up to the caller.
         /// </summary>
         ElbowWithDiagonal,
-
-        /// <summary>
-        /// Follows the pointer step by step, straight or diagonal, so one drag can wind any way.
-        /// Built up over the drag by <see cref="FreehandPath"/> rather than resolved from two points.
-        /// </summary>
-        Freehand,
     }
 
     /// <summary>

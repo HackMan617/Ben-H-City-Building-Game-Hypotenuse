@@ -36,8 +36,6 @@ namespace CityBuilder.View
             GUILayout.Space(6f);
             GUILayout.Label("Left drag      draw road", _label);
             GUILayout.Label("Right drag     erase", _label);
-            if (_tool == null || !_tool.IsFreehand)
-                GUILayout.Label("F              flip elbow order", _label);
             GUILayout.Label("Middle drag    pan", _label);
             GUILayout.Label("Scroll         zoom", _label);
             GUILayout.Label("Ctrl+Z / Y     undo / redo", _label);
@@ -49,8 +47,6 @@ namespace CityBuilder.View
             GUILayout.Label(pending > 0 ? $"{committed} cells  (+{pending} pending)" : $"{committed} cells", _label);
             if (_tool != null && _tool.IsDragging && _tool.IsBlocked)
                 GUILayout.Label("Blocked: overlaps a road it doesn't join", _label);
-            else if (_tool != null && _tool.IsDragging && _tool.PathMode == PathMode.ElbowWithDiagonal)
-                GUILayout.Label(_tool.DiagonalFirst ? "Diagonal first" : "Straight first", _label);
 
             GUILayout.EndArea();
         }
