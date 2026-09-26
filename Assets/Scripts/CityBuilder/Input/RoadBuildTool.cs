@@ -10,13 +10,13 @@ namespace CityBuilder.BuildTools
     /// Click-drag road drawing.
     ///
     /// Press to start, drag, release. The road follows the pointer, straight or diagonal, and backing
-    /// up over it reels it in -- see <see cref="FreehandPath"/>. A drawn road is only proposed on
-    /// release: the ghost stays up until the player confirms or cancels it. Erasing applies at once.
+    /// up over it reels it in -- see <see cref="FreehandPath"/>. A stroke is only proposed on
+    /// release, whether drawing or erasing: the ghost stays up until the player confirms or cancels it.
     ///
     ///   left button   draw        right button  erase
-    ///   Enter         build the proposed road
+    ///   Enter         apply the proposed stroke
     ///   Ctrl+Z        undo        Ctrl+Y        redo
-    ///   Escape        cancel the stroke in progress, or the proposed road
+    ///   Escape        cancel the stroke in progress, or the proposed stroke
     /// </summary>
     public class RoadBuildTool : MonoBehaviour
     {
@@ -35,10 +35,13 @@ namespace CityBuilder.BuildTools
 
         public bool IsDragging => _dragging;
 
-        /// <summary>True while a released road waits for the player to build or cancel it.</summary>
+        /// <summary>True while a released stroke waits for the player to apply or cancel it.</summary>
         public bool IsAwaitingConfirm => _awaitingConfirm;
 
-        /// <summary>Centre of the proposed road's last cell, for placing the confirm prompt.</summary>
+        /// <summary>True when the stroke in progress, or the proposed one, removes road.</summary>
+        public bool IsErasing => _erasing;
+
+        /// <summary>Centre of the proposed stroke's last cell, for placing the confirm prompt.</summary>
         public Vector3 PendingEnd => _path.Count > 0 ? _grid.CellToWorld(_path[_path.Count - 1]) : Vector3.zero;
 
         /// <summary>True when the stroke in progress overlaps road it does not join and cannot be built.</summary>
@@ -146,14 +149,7 @@ namespace CityBuilder.BuildTools
 
             if (!released) return;
 
-            if (_erasing)
-            {
-                _roads.ApplyStroke(_path, true);
-                CancelDrag();
-                return;
-            }
-
-            // Nothing to build, or nothing that could be built: there is no question to ask.
+            // Nothing to change, or a build that could not go ahead: there is no question to ask.
             if (_preview.IsEmpty || IsBlocked)
             {
                 CancelDrag();
@@ -175,16 +171,16 @@ namespace CityBuilder.BuildTools
                 CancelPending();
         }
 
-        /// <summary>Builds the proposed road.</summary>
+        /// <summary>Builds or erases the proposed stroke.</summary>
         public void ConfirmPending()
         {
             if (!_awaitingConfirm) return;
 
-            _roads.ApplyStroke(_path, false);
+            _roads.ApplyStroke(_path, _erasing);
             CancelDrag();
         }
 
-        /// <summary>Throws the proposed road away.</summary>
+        /// <summary>Throws the proposed stroke away, leaving the roads as they were.</summary>
         public void CancelPending()
         {
             if (!_awaitingConfirm) return;

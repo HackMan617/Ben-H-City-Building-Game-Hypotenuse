@@ -38,7 +38,7 @@ namespace CityBuilder.View
             GUILayout.Space(6f);
             GUILayout.Label("Left drag      draw road", _label);
             GUILayout.Label("Right drag     erase", _label);
-            GUILayout.Label("Enter / Esc    build / cancel", _label);
+            GUILayout.Label("Enter / Esc    confirm / cancel", _label);
             GUILayout.Label("Middle drag    pan", _label);
             GUILayout.Label("Scroll         zoom", _label);
             GUILayout.Label("Ctrl+Z / Y     undo / redo", _label);
@@ -56,7 +56,7 @@ namespace CityBuilder.View
             if (_tool != null && _tool.IsAwaitingConfirm) DrawConfirmPrompt();
         }
 
-        /// <summary>Build / Cancel beside the end of the proposed road.</summary>
+        /// <summary>Build or Erase / Cancel beside the end of the proposed stroke.</summary>
         void DrawConfirmPrompt()
         {
             const float width = 180f;
@@ -77,9 +77,10 @@ namespace CityBuilder.View
 
             GUILayout.BeginArea(new Rect(rect.x + 10f, rect.y + 8f, width - 20f, height - 16f));
             int cells = _tool.PendingCellCount;
-            GUILayout.Label(cells == 1 ? "Build 1 cell?" : $"Build {cells} cells?", _label);
+            string verb = _tool.IsErasing ? "Erase" : "Build";
+            GUILayout.Label(cells == 1 ? $"{verb} 1 cell?" : $"{verb} {cells} cells?", _label);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Build")) _tool.ConfirmPending();
+            if (GUILayout.Button(verb)) _tool.ConfirmPending();
             if (GUILayout.Button("Cancel")) _tool.CancelPending();
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
