@@ -11,3 +11,5 @@ Build with City Builder > Asset Bundles > Build for Editor / Android / iOS, then
 code with BundleLoader.LoadAssetAsync<GameObject>("houses", "Cottage").
 
 Files sitting directly in this folder, like this one, are not bundled.
+
+DefaultModels/ holds the models the game ships with (bundle "defaultmodels").
