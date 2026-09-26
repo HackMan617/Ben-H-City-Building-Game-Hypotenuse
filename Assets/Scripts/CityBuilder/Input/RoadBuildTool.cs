@@ -9,12 +9,14 @@ namespace CityBuilder.BuildTools
     /// <summary>
     /// Click-drag road drawing.
     ///
-    /// Press to start, drag, release to commit. The road follows the pointer, straight or diagonal,
-    /// and backing up over it reels it in -- see <see cref="FreehandPath"/>.
+    /// Press to start, drag, release. The road follows the pointer, straight or diagonal, and backing
+    /// up over it reels it in -- see <see cref="FreehandPath"/>. A drawn road is only proposed on
+    /// release: the ghost stays up until the player confirms or cancels it. Erasing applies at once.
     ///
     ///   left button   draw        right button  erase
+    ///   Enter         build the proposed road
     ///   Ctrl+Z        undo        Ctrl+Y        redo
-    ///   Escape        cancel the stroke in progress
+    ///   Escape        cancel the stroke in progress, or the proposed road
     /// </summary>
     public class RoadBuildTool : MonoBehaviour
     {
@@ -29,14 +31,22 @@ namespace CityBuilder.BuildTools
 
         bool _dragging;
         bool _erasing;
+        bool _awaitingConfirm;
 
         public bool IsDragging => _dragging;
+
+        /// <summary>True while a released road waits for the player to build or cancel it.</summary>
+        public bool IsAwaitingConfirm => _awaitingConfirm;
+
+        /// <summary>Centre of the proposed road's last cell, for placing the confirm prompt.</summary>
+        public Vector3 PendingEnd => _path.Count > 0 ? _grid.CellToWorld(_path[_path.Count - 1]) : Vector3.zero;
 
         /// <summary>True when the stroke in progress overlaps road it does not join and cannot be built.</summary>
         public bool IsBlocked { get; private set; }
 
         /// <summary>Cells the stroke in progress would add, or remove when erasing.</summary>
-        public int PendingCellCount => !_dragging ? 0 : _erasing ? _preview.Removed.Count : _preview.Added.Count;
+        public int PendingCellCount =>
+            !_dragging && !_awaitingConfirm ? 0 : _erasing ? _preview.Removed.Count : _preview.Added.Count;
 
         void Awake()
         {
@@ -49,6 +59,14 @@ namespace CityBuilder.BuildTools
         void Update()
         {
             if (_grid == null || _roads == null) return;
+
+            // The proposal is modal: no new strokes or undo until it is built or cancelled, so the
+            // ghost can never go stale against the network underneath it.
+            if (_awaitingConfirm)
+            {
+                UpdateConfirm();
+                return;
+            }
 
             HandleHistoryKeys();
 
@@ -128,13 +146,50 @@ namespace CityBuilder.BuildTools
 
             if (!released) return;
 
-            _roads.ApplyStroke(_path, _erasing);
+            if (_erasing)
+            {
+                _roads.ApplyStroke(_path, true);
+                CancelDrag();
+                return;
+            }
+
+            // Nothing to build, or nothing that could be built: there is no question to ask.
+            if (_preview.IsEmpty || IsBlocked)
+            {
+                CancelDrag();
+                return;
+            }
 
             _dragging = false;
-            _path.Clear();
-            _preview.Clear();
-            _trace.Clear();
-            _ghost?.Hide();
+            _awaitingConfirm = true;
+        }
+
+        void UpdateConfirm()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null) return;
+
+            if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                ConfirmPending();
+            else if (keyboard.escapeKey.wasPressedThisFrame)
+                CancelPending();
+        }
+
+        /// <summary>Builds the proposed road.</summary>
+        public void ConfirmPending()
+        {
+            if (!_awaitingConfirm) return;
+
+            _roads.ApplyStroke(_path, false);
+            CancelDrag();
+        }
+
+        /// <summary>Throws the proposed road away.</summary>
+        public void CancelPending()
+        {
+            if (!_awaitingConfirm) return;
+
+            CancelDrag();
         }
 
         void ShowGhost()
@@ -147,6 +202,7 @@ namespace CityBuilder.BuildTools
         void CancelDrag()
         {
             _dragging = false;
+            _awaitingConfirm = false;
             _path.Clear();
             _preview.Clear();
             _trace.Clear();
