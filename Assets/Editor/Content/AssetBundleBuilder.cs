@@ -14,8 +14,10 @@ namespace CityBuilder.EditorTools
     ///
     /// Each folder directly under Assets/GameAssets becomes one bundle, named after the folder in
     /// lower case; everything inside it, subfolders included, goes in. So
-    /// Assets/GameAssets/Houses/Cottage.fbx is loaded as bundle "houses", asset "Cottage". Files
-    /// sitting directly in Assets/GameAssets belong to no bundle.
+    /// Assets/GameAssets/Houses/Cottage.fbx is loaded as bundle "houses", asset "Cottage". A model's
+    /// JSON definition keeps its extension -- Cottage.json loads as "Cottage.json" -- so the pair can
+    /// share a name, and every definition is parsed before building so a broken one stops the build.
+    /// Files sitting directly in Assets/GameAssets belong to no bundle.
     ///
     /// Bundles are written to &lt;project&gt;/AssetBundles/&lt;Platform&gt; and LZ4-compressed, which
     /// lets a phone read them straight from storage instead of unpacking them into memory. Making a
@@ -52,6 +54,7 @@ namespace CityBuilder.EditorTools
         {
             var errors = new List<string>();
             List<AssetBundleBuild> bundles = Plan(FindGameAssetFiles(), errors);
+            ValidateDefinitions(bundles, errors);
 
             foreach (string error in errors) Debug.LogError(error);
             if (errors.Count > 0) return false;
@@ -86,8 +89,8 @@ namespace CityBuilder.EditorTools
 
         /// <summary>
         /// Groups asset paths into bundles by their first folder under Assets/GameAssets. Scripts and
-        /// files outside a group folder are skipped. Two assets in one bundle with the same file name
-        /// are reported in <paramref name="errors"/>, since they would share a load name.
+        /// files outside a group folder are skipped. Two assets in one bundle with the same load name
+        /// are reported in <paramref name="errors"/>, since only one could be loaded; see <see cref="LoadName"/>.
         /// </summary>
         public static List<AssetBundleBuild> Plan(IEnumerable<string> assetPaths, List<string> errors)
         {
@@ -112,9 +115,9 @@ namespace CityBuilder.EditorTools
             {
                 List<string> members = group.Value;
                 members.Sort(System.StringComparer.Ordinal);
-                string[] names = members.Select(m => Path.GetFileNameWithoutExtension(m)).ToArray();
+                string[] names = members.Select(LoadName).ToArray();
 
-                foreach (IGrouping<string, string> clash in members.GroupBy(m => Path.GetFileNameWithoutExtension(m)).Where(g => g.Count() > 1))
+                foreach (IGrouping<string, string> clash in members.GroupBy(LoadName).Where(g => g.Count() > 1))
                 {
                     errors.Add($"Bundle '{group.Key}' has more than one asset named '{clash.Key}': " +
                                string.Join(", ", clash) + ". Rename one so each can be loaded by name.");
@@ -128,6 +131,29 @@ namespace CityBuilder.EditorTools
                 });
             }
             return builds;
+        }
+
+        /// <summary>
+        /// What an asset is loaded by: its file name without extension, except JSON definitions, which
+        /// keep ".json" so Cottage.json and Cottage.fbx can sit side by side.
+        /// </summary>
+        public static string LoadName(string assetPath)
+        {
+            string name = Path.GetFileNameWithoutExtension(assetPath);
+            return IsDefinition(assetPath) ? BundleLoader.DefinitionAssetName(name) : name;
+        }
+
+        static bool IsDefinition(string assetPath) =>
+            Path.GetExtension(assetPath).Equals(BundleLoader.DefinitionExtension, System.StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Parses every JSON definition going into a bundle, the same way the game will.</summary>
+        static void ValidateDefinitions(List<AssetBundleBuild> bundles, List<string> errors)
+        {
+            foreach (AssetBundleBuild bundle in bundles)
+            {
+                foreach (string path in bundle.assetNames.Where(IsDefinition))
+                    ModelDefinitionParser.Parse(File.ReadAllText(path), path, errors);
+            }
         }
 
         /// <summary>The bundle folder name for <paramref name="target"/>; matches <see cref="GameAssetPaths.PlatformName"/>.</summary>

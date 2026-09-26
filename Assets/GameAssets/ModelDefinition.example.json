@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "cottage",
+  "displayName": "Cottage",
+  "footprint": { "width": 1, "depth": 1 },
+  "cost": 100,
+  "behaviors": [
+    { "type": "housing", "residents": 4 }
+  ]
+}

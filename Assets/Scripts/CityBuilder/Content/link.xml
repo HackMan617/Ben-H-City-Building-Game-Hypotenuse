@@ -1,0 +1,10 @@
+<!--
+  Model definitions are only ever created by the JSON reader, through reflection, so nothing in
+  code references their constructors or fields. Without this, IL2CPP builds (iOS, Android) can
+  strip them and every definition loads empty.
+-->
+<linker>
+  <assembly fullname="Assembly-CSharp">
+    <namespace fullname="CityBuilder.Content" preserve="all" />
+  </assembly>
+</linker>

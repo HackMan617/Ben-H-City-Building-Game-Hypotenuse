@@ -9,7 +9,8 @@ namespace CityBuilder.Content
     ///
     /// Models arrive as prefabs: an .fbx under Assets/GameAssets is imported by the editor and packed
     /// into a bundle, so <c>LoadAssetAsync&lt;GameObject&gt;("houses", "Cottage")</c> returns the
-    /// model ready to instantiate. The device never parses FBX itself.
+    /// model ready to instantiate. The device never parses FBX itself. A model's behaviour and
+    /// technical data ships beside it as Cottage.json -- see <see cref="LoadDefinitionAsync"/>.
     ///
     /// Every successful load holds its bundle open; call <see cref="Release"/> once per load when
     /// the asset and anything instantiated from it are gone. Releasing early unloads the meshes and
@@ -93,6 +94,31 @@ namespace CityBuilder.Content
             Release(bundleName);
             return null;
         }
+
+        /// <summary>
+        /// Loads and parses the JSON definition that ships beside <paramref name="modelName"/>, e.g.
+        /// Cottage.json for Cottage.fbx. Returns null if it is missing or invalid. Holds nothing open
+        /// afterwards: the result is plain data, so there is nothing to release.
+        /// </summary>
+        public async Awaitable<ModelDefinition> LoadDefinitionAsync(string bundleName, string modelName)
+        {
+            string assetName = DefinitionAssetName(modelName);
+            TextAsset file = await LoadAssetAsync<TextAsset>(bundleName, assetName);
+            if (file == null) return null;
+
+            string json = file.text;
+            Release(bundleName);
+
+            var errors = new List<string>();
+            ModelDefinition definition = ModelDefinitionParser.Parse(json, $"{bundleName}/{assetName}", errors);
+            foreach (string error in errors) Debug.LogError(error);
+            return definition;
+        }
+
+        /// <summary>The name a model's JSON definition is loaded by: its file name, extension included.</summary>
+        public static string DefinitionAssetName(string modelName) => modelName + DefinitionExtension;
+
+        public const string DefinitionExtension = ".json";
 
         /// <summary>Gives back one load's hold on <paramref name="bundleName"/> and its dependencies.</summary>
         public void Release(string bundleName)
