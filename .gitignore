@@ -116,3 +116,8 @@ InitTestScene*.unity*
 # Claude Code: local settings, skills, and the per-user MCP server config
 /.claude/
 /.mcp.json
+
+# Asset bundle builder output, and the copy made into StreamingAssets during a player build
+/[Aa]sset[Bb]undles/
+/[Aa]ssets/[Ss]treaming[Aa]ssets/[Bb]undles/
+/[Aa]ssets/[Ss]treaming[Aa]ssets/[Bb]undles.meta
