@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using CityBuilder.Grid;
 using CityBuilder.Roads;
+using CityBuilder.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -24,6 +25,7 @@ namespace CityBuilder.BuildTools
         [SerializeField] RoadSystem _roads;
         [SerializeField] RoadGhost _ghost;
         [SerializeField] Camera _camera;
+        [SerializeField] BuildMenu _buildMenu;
 
         readonly List<GridCoord> _path = new List<GridCoord>();
         readonly RoadEdit _preview = new RoadEdit();
@@ -57,17 +59,24 @@ namespace CityBuilder.BuildTools
             if (_roads == null) _roads = FindAnyObjectByType<RoadSystem>();
             if (_ghost == null) _ghost = FindAnyObjectByType<RoadGhost>();
             if (_camera == null) _camera = Camera.main;
+            if (_buildMenu == null) _buildMenu = FindAnyObjectByType<BuildMenu>();
         }
 
         void Update()
         {
             if (_grid == null || _roads == null) return;
 
-            // The proposal is modal: no new strokes or undo until it is built or cancelled, so the
-            // ghost can never go stale against the network underneath it.
+            bool roadsActive = _buildMenu == null || _buildMenu.Active == BuildCategory.Roads;
+
             if (_awaitingConfirm)
             {
                 UpdateConfirm();
+                return;
+            }
+
+            if (!roadsActive)
+            {
+                if (_dragging) CancelDrag();
                 return;
             }
 
@@ -124,6 +133,7 @@ namespace CityBuilder.BuildTools
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 CancelDrag();
+                if (_buildMenu != null) _buildMenu.EscapeConsumed = true;
                 return;
             }
 
@@ -168,7 +178,10 @@ namespace CityBuilder.BuildTools
             if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
                 ConfirmPending();
             else if (keyboard.escapeKey.wasPressedThisFrame)
+            {
                 CancelPending();
+                if (_buildMenu != null) _buildMenu.EscapeConsumed = true;
+            }
         }
 
         /// <summary>Builds or erases the proposed stroke.</summary>
