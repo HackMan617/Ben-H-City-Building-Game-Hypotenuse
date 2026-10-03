@@ -2,7 +2,22 @@
   "schemaVersion": 1,
   "id": "cottage",
   "displayName": "Cottage",
-  "footprint": { "width": 1, "depth": 1 },
+  "tags": [ "residential" ],
+  "footprint": {
+    "width": 2,
+    "depth": 2,
+    "height": 1,
+    "cells": [ "XX",
+               "X." ],
+    "anchor": { "x": 0, "z": 0 },
+    "front": "south"
+  },
+  "placement": {
+    "roadAccess": { "side": "front", "distance": 1 },
+    "clearance": 0,
+    "keepAwayFrom": [ { "tag": "industrial", "distance": 4 } ],
+    "maxCount": 0
+  },
   "cost": 100,
   "behaviors": [
     { "type": "housing", "residents": 4 }

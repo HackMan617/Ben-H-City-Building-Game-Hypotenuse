@@ -18,4 +18,8 @@ start one. Every definition is checked when bundles are built; load one with
 BundleLoader.LoadDefinitionAsync("houses", "Cottage"). Behaviour types this build doesn't know
 are kept, not rejected, so newer content still loads.
 
-DefaultModels/ holds the models the game ships with (bundle "defaultmodels").
+A definition's "footprint" gives the cells the model covers (width x depth, or an irregular
+"cells" mask written north row first), its height, the anchor cell that follows the cursor and
+the side its entrance faces. "placement" says where it may go: "roadAccess" (any edge or only
+the front, within a distance), "clearance" from other buildings, "keepAwayFrom" buildings by id
+or tag, and "maxCount" per city. Every field is optional; BuildingPlacement.Check applies them.
