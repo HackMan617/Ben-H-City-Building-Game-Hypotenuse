@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using CityBuilder.Buildings;
 using CityBuilder.BuildTools;
+using CityBuilder.Content;
 using CityBuilder.Roads;
 using UnityEngine;
 
@@ -9,8 +12,11 @@ namespace CityBuilder.View
         [SerializeField] RoadSystem _roads;
         [SerializeField] RoadBuildTool _tool;
         [SerializeField] DemolishTool _demolish;
+        [SerializeField] BuildingBuildTool _buildingTool;
         [SerializeField] Camera _camera;
         [SerializeField] BuildMenu _menu;
+
+        List<ModelDefinition> _palette;
 
         GUIStyle _panel;
         GUIStyle _label;
@@ -23,12 +29,15 @@ namespace CityBuilder.View
             if (_roads == null) _roads = FindAnyObjectByType<RoadSystem>();
             if (_tool == null) _tool = FindAnyObjectByType<RoadBuildTool>();
             if (_demolish == null) _demolish = FindAnyObjectByType<DemolishTool>();
+            if (_buildingTool == null) _buildingTool = FindAnyObjectByType<BuildingBuildTool>();
             if (_camera == null) _camera = Camera.main;
             if (_menu == null) _menu = FindAnyObjectByType<BuildMenu>();
             if (_menu == null)
             {
                 _menu = gameObject.AddComponent<BuildMenu>();
             }
+
+            _palette = BuildingPalette.Create();
         }
 
         void OnGUI()
@@ -37,9 +46,11 @@ namespace CityBuilder.View
             DrawBuildButton();
 
             if (_menu.IsOpen) DrawCategoryMenu();
+            if (_menu.Active == BuildCategory.Buildings) DrawBuildingPalette();
             if (_menu.Active != BuildCategory.None) DrawToolStatus();
             if (_tool != null && _tool.IsAwaitingConfirm) DrawRoadConfirmPrompt();
             if (_demolish != null && _demolish.IsAwaitingConfirm) DrawDemolishConfirmPrompt();
+            if (_buildingTool != null && _buildingTool.IsAwaitingConfirm) DrawBuildingConfirmPrompt();
         }
 
         void DrawBuildButton()
@@ -103,7 +114,17 @@ namespace CityBuilder.View
                         GUILayout.Label("Blocked: overlaps a road", _label);
                     break;
                 case BuildCategory.Buildings:
-                    GUILayout.Label("Select a building to place", _label);
+                    if (_buildingTool != null && _buildingTool.Selected != null)
+                    {
+                        GUILayout.Label($"Placing: {_buildingTool.Selected.DisplayName}", _label);
+                        GUILayout.Label("Click to place  R to rotate  Esc to cancel", _label);
+                        if (_buildingTool.LastProblem != PlacementProblem.None)
+                            GUILayout.Label($"Blocked: {_buildingTool.LastProblem}", _label);
+                    }
+                    else
+                    {
+                        GUILayout.Label("Select a building to place", _label);
+                    }
                     break;
                 case BuildCategory.Terrain:
                     GUILayout.Label("Terrain tools coming soon", _label);
@@ -159,6 +180,43 @@ namespace CityBuilder.View
             if (GUILayout.Button("Cancel")) onCancel();
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
+        }
+
+        void DrawBuildingPalette()
+        {
+            if (_palette == null || _palette.Count == 0 || _buildingTool == null) return;
+
+            float btnW = 110f;
+            float btnH = 32f;
+            float spacing = 6f;
+            float totalW = _palette.Count * btnW + (_palette.Count - 1) * spacing;
+            float startX = Screen.width * 0.5f - totalW * 0.5f;
+            float y = Screen.height - 40f - 16f - 36f - 12f - btnH - 12f;
+
+            float panelPad = 8f;
+            GUI.Box(new Rect(startX - panelPad, y - panelPad, totalW + panelPad * 2, btnH + panelPad * 2),
+                    GUIContent.none, _panel);
+
+            for (int i = 0; i < _palette.Count; i++)
+            {
+                ModelDefinition def = _palette[i];
+                float x = startX + i * (btnW + spacing);
+                bool active = _buildingTool.Selected == def;
+                GUIStyle style = active ? _categoryButtonActive : _categoryButton;
+                string label = def.DisplayName ?? def.Id;
+                if (GUI.Button(new Rect(x, y, btnW, btnH), label, style))
+                {
+                    if (active) _buildingTool.Deselect();
+                    else _buildingTool.Select(def);
+                }
+            }
+        }
+
+        void DrawBuildingConfirmPrompt()
+        {
+            string label = $"Place {_buildingTool.Selected?.DisplayName ?? "building"}?";
+            DrawConfirmPopup(_buildingTool.PendingEnd, label, "Place",
+                             _buildingTool.ConfirmPending, _buildingTool.CancelPending);
         }
 
         void EnsureStyles()
