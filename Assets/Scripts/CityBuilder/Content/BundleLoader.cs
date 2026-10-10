@@ -16,6 +16,11 @@ namespace CityBuilder.Content
     /// the asset and anything instantiated from it are gone. Releasing early unloads the meshes and
     /// textures out from under live objects.
     ///
+    /// A bundle is <em>functional</em> when its prefab carries MonoBehaviour components:
+    /// <see cref="InstantiateModelAsync"/> loads such a prefab, instantiates it, and runs those scripts
+    /// through <see cref="BundleScriptReader"/>, handing each its definition. The scripts' code lives in
+    /// the app, not the bundle -- see <see cref="IBundleScript"/>.
+    ///
     /// Everything runs on the main thread. Loads are asynchronous so a large bundle does not stall a
     /// frame, and two loads from the same bundle share one open.
     /// </summary>
@@ -113,6 +118,37 @@ namespace CityBuilder.Content
             ModelDefinition definition = ModelDefinitionParser.Parse(json, $"{bundleName}/{assetName}", errors);
             foreach (string error in errors) Debug.LogError(error);
             return definition;
+        }
+
+        /// <summary>
+        /// Loads a model's prefab and its definition from a functional bundle, instantiates the prefab,
+        /// and runs the scripts riding on it: every <see cref="IBundleScript"/> component is handed the
+        /// definition through <see cref="BundleScriptReader"/>. Returns the live instance, or null when
+        /// the prefab is missing.
+        ///
+        /// The bundle stays open for as long as the instance lives -- its meshes and textures come from
+        /// there -- so call <see cref="Release"/> with the same <paramref name="bundleName"/> once, after
+        /// the instance is destroyed. A model with no JSON definition still loads; its scripts get a null
+        /// <see cref="BundleScriptContext.Definition"/>. Missing script references and scripts that throw
+        /// while initializing are logged but do not fail the load.
+        /// </summary>
+        public async Awaitable<GameObject> InstantiateModelAsync(string bundleName, string modelName, Transform parent = null)
+        {
+            // Holds one reference on the bundle, carried by the instance below until the caller releases.
+            GameObject prefab = await LoadAssetAsync<GameObject>(bundleName, modelName);
+            if (prefab == null) return null;
+
+            // Acquires and releases on its own, so the prefab's hold is the only one left afterwards.
+            ModelDefinition definition = await LoadDefinitionAsync(bundleName, modelName);
+
+            GameObject instance = Object.Instantiate(prefab, parent);
+            instance.name = prefab.name;
+
+            var context = new BundleScriptContext(definition, bundleName, modelName);
+            BundleScriptReader.Report report = BundleScriptReader.Initialize(instance, context);
+            foreach (string error in report.Errors) Debug.LogError(error);
+
+            return instance;
         }
 
         /// <summary>The name a model's JSON definition is loaded by: its file name, extension included.</summary>
