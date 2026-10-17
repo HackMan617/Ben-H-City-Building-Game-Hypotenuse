@@ -91,15 +91,12 @@ namespace CityBuilder.BuildTools
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
-            bool onPlane = _grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world);
-            GridCoord cursor = onPlane ? _grid.WorldToCell(world) : default;
-            bool onGround = onPlane && _grid.InBounds(cursor);
-
-            if (!onGround)
-            {
-                HideGhost();
+            // Off the map the ghost still follows the cursor, drawn as blocked by the bounds check
+            // below. Pointing at the sky there is no cell to show, so it stays where it last was.
+            if (!_grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world))
                 return;
-            }
+
+            GridCoord cursor = _grid.WorldToCell(world);
 
             _previewCells.Clear();
             _previewCells.AddRange(BuildingPlacement.CellsAt(_selected.Footprint, cursor, _rotation));
