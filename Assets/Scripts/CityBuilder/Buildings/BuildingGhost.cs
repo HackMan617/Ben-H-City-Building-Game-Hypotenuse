@@ -14,9 +14,17 @@ namespace CityBuilder.Buildings
         [Tooltip("Lifts the ghost clear of the ground so it does not z-fight.")]
         [SerializeField] float _zOffset = 0.005f;
 
+        [Tooltip("Gap left between the ghost and the edge of its footprint.")]
+        [SerializeField] float _inset = 0.04f;
+
         Mesh _mesh;
         MeshFilter _filter;
         MeshRenderer _renderer;
+
+        readonly HashSet<GridCoord> _covered = new HashSet<GridCoord>();
+        readonly List<Vector3> _verts = new List<Vector3>();
+        readonly List<Vector3> _normals = new List<Vector3>();
+        readonly List<int> _tris = new List<int>();
 
         void Awake()
         {
@@ -31,7 +39,8 @@ namespace CityBuilder.Buildings
             Hide();
         }
 
-        public void Show(List<GridCoord> cells, float cellSize, bool valid)
+        /// <summary>Shows a block over <paramref name="cells"/>, <paramref name="height"/> world units tall.</summary>
+        public void Show(List<GridCoord> cells, float cellSize, float height, bool valid)
         {
             if (cells == null || cells.Count == 0)
             {
@@ -39,7 +48,7 @@ namespace CityBuilder.Buildings
                 return;
             }
 
-            BuildMesh(cells, cellSize);
+            BuildMesh(cells, cellSize, Mathf.Max(height, 0.01f));
 
             Material mat = valid ? _validMaterial : _blockedMaterial;
             if (mat != null) _renderer.sharedMaterial = mat;
@@ -53,41 +62,61 @@ namespace CityBuilder.Buildings
             if (_renderer != null) _renderer.enabled = false;
         }
 
-        void BuildMesh(List<GridCoord> cells, float cellSize)
+        // One closed volume over the footprint: a roof per cell, and walls only on edges that face
+        // an uncovered cell, so the see-through ghost shows no inner walls between its own cells.
+        void BuildMesh(List<GridCoord> cells, float cellSize, float height)
         {
-            int count = cells.Count;
-            var verts = new Vector3[count * 4];
-            var tris = new int[count * 6];
+            _covered.Clear();
+            foreach (GridCoord cell in cells) _covered.Add(cell);
 
-            const float inset = 0.04f;
+            _verts.Clear();
+            _normals.Clear();
+            _tris.Clear();
 
-            for (int i = 0; i < count; i++)
+            foreach (GridCoord cell in cells)
             {
-                GridCoord cell = cells[i];
-                float x0 = cell.X * cellSize + inset;
-                float z0 = cell.Z * cellSize + inset;
-                float x1 = (cell.X + 1) * cellSize - inset;
-                float z1 = (cell.Z + 1) * cellSize - inset;
+                bool west = !_covered.Contains(new GridCoord(cell.X - 1, cell.Z));
+                bool east = !_covered.Contains(new GridCoord(cell.X + 1, cell.Z));
+                bool south = !_covered.Contains(new GridCoord(cell.X, cell.Z - 1));
+                bool north = !_covered.Contains(new GridCoord(cell.X, cell.Z + 1));
 
-                int vi = i * 4;
-                verts[vi + 0] = new Vector3(x0, 0f, z0);
-                verts[vi + 1] = new Vector3(x1, 0f, z0);
-                verts[vi + 2] = new Vector3(x1, 0f, z1);
-                verts[vi + 3] = new Vector3(x0, 0f, z1);
+                float x0 = cell.X * cellSize + (west ? _inset : 0f);
+                float x1 = (cell.X + 1) * cellSize - (east ? _inset : 0f);
+                float z0 = cell.Z * cellSize + (south ? _inset : 0f);
+                float z1 = (cell.Z + 1) * cellSize - (north ? _inset : 0f);
+                float y = height;
 
-                int ti = i * 6;
-                tris[ti + 0] = vi;
-                tris[ti + 1] = vi + 2;
-                tris[ti + 2] = vi + 1;
-                tris[ti + 3] = vi;
-                tris[ti + 4] = vi + 3;
-                tris[ti + 5] = vi + 2;
+                AddQuad(new Vector3(x0, y, z0), new Vector3(x0, y, z1), new Vector3(x1, y, z1), new Vector3(x1, y, z0), Vector3.up);
+
+                if (south) AddQuad(new Vector3(x0, 0f, z0), new Vector3(x0, y, z0), new Vector3(x1, y, z0), new Vector3(x1, 0f, z0), Vector3.back);
+                if (north) AddQuad(new Vector3(x1, 0f, z1), new Vector3(x1, y, z1), new Vector3(x0, y, z1), new Vector3(x0, 0f, z1), Vector3.forward);
+                if (west) AddQuad(new Vector3(x0, 0f, z1), new Vector3(x0, y, z1), new Vector3(x0, y, z0), new Vector3(x0, 0f, z0), Vector3.left);
+                if (east) AddQuad(new Vector3(x1, 0f, z0), new Vector3(x1, y, z0), new Vector3(x1, y, z1), new Vector3(x1, 0f, z1), Vector3.right);
             }
 
             _mesh.Clear();
-            _mesh.vertices = verts;
-            _mesh.triangles = tris;
-            _mesh.RecalculateNormals();
+            _mesh.SetVertices(_verts);
+            _mesh.SetNormals(_normals);
+            _mesh.SetTriangles(_tris, 0);
+            _mesh.RecalculateBounds();
+        }
+
+        // Corners in clockwise order as seen from the side the normal points to.
+        void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 normal)
+        {
+            int vi = _verts.Count;
+            _verts.Add(a);
+            _verts.Add(b);
+            _verts.Add(c);
+            _verts.Add(d);
+            for (int i = 0; i < 4; i++) _normals.Add(normal);
+
+            _tris.Add(vi);
+            _tris.Add(vi + 1);
+            _tris.Add(vi + 2);
+            _tris.Add(vi);
+            _tris.Add(vi + 2);
+            _tris.Add(vi + 3);
         }
 
         void OnDestroy()

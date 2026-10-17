@@ -109,7 +109,7 @@ namespace CityBuilder.BuildTools
                 _grid.InBounds, _roads.Network, _placed);
 
             bool valid = _lastProblem == PlacementProblem.None;
-            _ghost?.Show(_previewCells, _grid.CellSize, valid);
+            _ghost?.Show(_previewCells, _grid.CellSize, _selected.Footprint.Height * _grid.CellSize, valid);
 
             if (mouse.leftButton.wasPressedThisFrame && valid)
             {

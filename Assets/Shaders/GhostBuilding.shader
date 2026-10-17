@@ -46,23 +46,30 @@ Shader "CityBuilder/GhostBuilding"
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
+                float3 normalWS : TEXCOORD0;
             };
 
             Varyings Vert(Attributes input)
             {
                 Varyings output;
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
-                return _BaseColor;
+                // Fixed light from above and to one side, so the roof and each wall get their own
+                // tone and the block reads as a solid shape rather than a flat silhouette.
+                float3 lightDir = normalize(float3(0.45, 1.0, -0.3));
+                half shade = 0.55h + 0.45h * saturate(dot(normalize(input.normalWS), lightDir));
+                return half4(_BaseColor.rgb * shade, _BaseColor.a);
             }
             ENDHLSL
         }
