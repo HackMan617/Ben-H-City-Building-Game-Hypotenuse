@@ -13,11 +13,11 @@ namespace CityBuilder.Roads
     ///          the cell edge for N/E/S/W, the cell corner for a diagonal. The neighbour's arm
     ///          starts on the same line, so the two meet flush.
     ///   back   fills any gap wider than 180 degrees between two neighbouring arms, i.e. the
-    ///          outside of a turn or the end of a dead end.
-    ///   square an isolated cell with no connections at all.
+    ///          outside of a turn. A dead end's back is a half-round cap instead.
+    ///   disc   an isolated cell with no connections at all, a road-width across.
     ///
     /// A 90-degree turn keeps the squared outer corner it always had; a 135-degree turn (diagonal
-    /// into straight) gets a single sharp mitre; a diagonal dead end is cut off flat.
+    /// into straight) gets a single sharp mitre; every dead end, straight or diagonal, is rounded off.
     ///
     /// A 45-degree road cannot stay inside its own square -- at this width it always spills over
     /// the corners of the two cells beside each diagonal step -- so pieces are allowed to overlap.
@@ -40,6 +40,9 @@ namespace CityBuilder.Roads
         static readonly List<Vector2> Outline = new List<Vector2>(4);
 
         const float Sqrt2 = 1.41421356f;
+
+        /// <summary>Straight sides a dead end's half-round cap is made of.</summary>
+        const int CapSegments = 12;
 
         /// <summary>
         /// Writes geometry for <paramref name="cells"/> into <paramref name="mesh"/>. Junction shape
@@ -134,21 +137,21 @@ namespace CityBuilder.Roads
             }
         }
 
-        /// <summary>No connections: a plain square, capped on all four sides.</summary>
+        /// <summary>No connections: a round disc, curbed all the way round, matching the rounded dead ends.</summary>
         static void AppendIsolated(Vector2 c, float hr, float h, float cs)
         {
-            var sw = new Vector2(c.x - hr, c.y - hr);
-            var nw = new Vector2(c.x - hr, c.y + hr);
-            var ne = new Vector2(c.x + hr, c.y + hr);
-            var se = new Vector2(c.x + hr, c.y - hr);
+            // Clockwise from north seen from above, so a fan from the centre is front-facing.
+            int segments = CapSegments * 2;
+            for (int i = 0; i < segments; i++)
+            {
+                float a0 = 2f * Mathf.PI * i / segments;
+                float a1 = 2f * Mathf.PI * (i + 1) / segments;
+                Vector2 p = c + new Vector2(Mathf.Sin(a0), Mathf.Cos(a0)) * hr;
+                Vector2 q = c + new Vector2(Mathf.Sin(a1), Mathf.Cos(a1)) * hr;
 
-            AddTopQuad(sw, nw, ne, se, h, cs);
-
-            if (h <= 0.0001f) return;
-            AddWall(nw, ne, Vector2.up, h, cs);
-            AddWall(ne, se, Vector2.right, h, cs);
-            AddWall(se, sw, Vector2.down, h, cs);
-            AddWall(sw, nw, Vector2.left, h, cs);
+                AddTopTriangle(c, p, q, h, cs);
+                if (h > 0.0001f) AddWall(p, q, ((p + q) * 0.5f - c).normalized, h, cs);
+            }
         }
 
         /// <summary>
@@ -185,10 +188,10 @@ namespace CityBuilder.Roads
         ///
         ///   225 / 270   one corner where the two sides meet: a sharp 135-degree mitre, or the
         ///               squared back of a 90-degree turn.
-        ///   315 / 360   those sides would meet far outside the cell, so the back is cut off square
-        ///               instead, half a road-width behind the centre. The cut is square to the
-        ///               orthogonal arm when there is one, so forks keep a grid-aligned back; a lone
-        ///               diagonal gets a flat end square to its own direction.
+        ///   315         those sides would meet far outside the cell, so the back is cut off square
+        ///               instead, half a road-width behind the centre, square to the orthogonal arm
+        ///               so the fork keeps a grid-aligned back.
+        ///   360         a dead end: a half-round cap, half a road-width behind the centre.
         /// </summary>
         static void AppendBack(Vector2 c, Dir8 a, Dir8 b, int steps, float hr, float h, float cs)
         {
@@ -200,13 +203,24 @@ namespace CityBuilder.Roads
             Outline.Clear();
             Outline.Add(start);
 
-            if (steps <= 6)
+            if (steps == 8)
+            {
+                // A dead end: half a circle, a road-width across, swung clockwise from the arm's right
+                // side round behind the centre to its left. It stays inside the cell and the strip.
+                Vector2 side = Right(ua);
+                for (int i = 1; i < CapSegments; i++)
+                {
+                    float angle = Mathf.PI * i / CapSegments;
+                    Outline.Add(c + (side * Mathf.Cos(angle) - ua * Mathf.Sin(angle)) * hr);
+                }
+            }
+            else if (steps <= 6)
             {
                 Outline.Add(Intersect(start, ua, end, ub));
             }
             else
             {
-                Vector2 capNormal = steps == 8 || !Dir8Util.IsDiagonal(a) ? ua : ub;
+                Vector2 capNormal = !Dir8Util.IsDiagonal(a) ? ua : ub;
                 Vector2 capPoint = c - capNormal * hr;
                 Vector2 capAlong = Right(capNormal);
 

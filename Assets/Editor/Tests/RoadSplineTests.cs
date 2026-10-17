@@ -72,6 +72,49 @@ namespace CityBuilder.Tests
         }
 
         [Test]
+        public void DeadEnd_IsRoundedOff()
+        {
+            RoadNetwork network = Network(C(0, 0), C(1, 0));
+            var mesh = new Mesh();
+            RoadMeshBuilder.Build(mesh, network, new[] { C(0, 0) }, RoadProfile.Default);
+
+            // Behind the centre of the end cell (0, 0), whose one arm runs east, everything lies
+            // within half a road-width of the centre, and the cap reaches all the way out to it.
+            RoadProfile profile = RoadProfile.Default;
+            var centre = new Vector2(0.5f, 0.5f) * profile.CellSize;
+            float furthestBack = 0f;
+            foreach (Vector3 v in mesh.vertices)
+            {
+                Vector2 p = new Vector2(v.x, v.z) - centre;
+                if (p.x >= -1e-4f) continue;
+                Assert.LessOrEqual(p.magnitude, profile.HalfRoad + 1e-4f, $"vertex {v} squares off the end");
+                furthestBack = Mathf.Max(furthestBack, -p.x);
+            }
+            Assert.AreEqual(profile.HalfRoad, furthestBack, 1e-4f);
+
+            Object.DestroyImmediate(mesh);
+        }
+
+        [Test]
+        public void IsolatedCell_IsARoundDisc()
+        {
+            RoadNetwork network = Network(C(0, 0));
+            var mesh = new Mesh();
+            RoadMeshBuilder.Build(mesh, network, new[] { C(0, 0) }, RoadProfile.Default);
+
+            RoadProfile profile = RoadProfile.Default;
+            var centre = new Vector2(0.5f, 0.5f) * profile.CellSize;
+            foreach (Vector3 v in mesh.vertices)
+            {
+                float r = (new Vector2(v.x, v.z) - centre).magnitude;
+                Assert.That(r, Is.LessThan(1e-4f).Or.EqualTo(profile.HalfRoad).Within(1e-4f), $"vertex {v} is off the disc");
+            }
+            AssertFrontFacing(network);
+
+            Object.DestroyImmediate(mesh);
+        }
+
+        [Test]
         public void CornerCrossingGeometry_FacesTheWayItsNormalsSay()
         {
             RoadNetwork network = Network(C(-1, -1), C(0, 0), C(1, 1), C(2, 2));
