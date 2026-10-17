@@ -12,6 +12,9 @@ namespace CityBuilder.EditorTools
     {
         public const string Root = "Assets/GameAssets";
 
+        /// <summary>The "roads" bundle's folder; see <see cref="CityBuilder.Roads.RoadModels"/>.</summary>
+        public const string RoadsFolder = Root + "/Roads";
+
         /// <summary>Largest texture side on import; phones rarely gain from more and pay for it in memory.</summary>
         const int MaxTextureSize = 2048;
 
@@ -25,7 +28,8 @@ namespace CityBuilder.EditorTools
 
             // Smaller meshes on disk, and no CPU-side copy kept in memory once uploaded to the GPU.
             model.meshCompression = ModelImporterMeshCompression.Medium;
-            model.isReadable = false;
+            // Road models are copied and bent along splines at runtime, which needs the mesh data on the CPU.
+            model.isReadable = assetPath.StartsWith(RoadsFolder + "/");
             model.optimizeMeshPolygons = true;
             model.optimizeMeshVertices = true;
 

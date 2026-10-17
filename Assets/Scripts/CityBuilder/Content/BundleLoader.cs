@@ -38,6 +38,16 @@ namespace CityBuilder.Content
         AssetBundle _manifestBundle;
         AssetBundleManifest _manifest;
 
+        /// <summary>
+        /// The game's one loader. A bundle file can only be open once, so systems that load from the
+        /// same bundles share this rather than making their own.
+        /// </summary>
+        public static BundleLoader Shared { get; private set; } = new BundleLoader();
+
+        // With domain reload off, statics outlive play mode but the bundles they opened do not.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetShared() => Shared = new BundleLoader();
+
         public bool IsInitialized => _manifest != null;
 
         /// <summary>Bundles currently open, including ones still loading.</summary>
@@ -96,6 +106,33 @@ namespace CityBuilder.Content
             if (request.asset is T asset) return asset;
 
             Debug.LogError($"Asset '{assetName}' of type {typeof(T).Name} is not in bundle '{bundleName}'.");
+            Release(bundleName);
+            return null;
+        }
+
+        /// <summary>
+        /// Like <see cref="LoadAssetAsync{T}"/>, for assets a bundle may or may not have: returns null
+        /// quietly, holding nothing open, when the bundle was not built or lacks the asset.
+        /// </summary>
+        public async Awaitable<T> LoadOptionalAssetAsync<T>(string bundleName, string assetName) where T : Object
+        {
+            if (!IsInitialized && !Initialize()) return null;
+            if (!HasBundle(bundleName)) return null;
+
+            AssetBundle bundle = await AcquireAsync(bundleName);
+            if (bundle == null) return null;
+
+            if (!bundle.Contains(assetName))
+            {
+                Release(bundleName);
+                return null;
+            }
+
+            AssetBundleRequest request = bundle.LoadAssetAsync<T>(assetName);
+            while (!request.isDone) await Awaitable.NextFrameAsync();
+
+            if (request.asset is T asset) return asset;
+
             Release(bundleName);
             return null;
         }

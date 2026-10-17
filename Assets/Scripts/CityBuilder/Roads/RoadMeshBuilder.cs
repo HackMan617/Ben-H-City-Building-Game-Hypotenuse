@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using CityBuilder.Grid;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace CityBuilder.Roads
 {
@@ -28,10 +27,14 @@ namespace CityBuilder.Roads
     public static class RoadMeshBuilder
     {
         // Reused across rebuilds so a drag does not churn the heap every frame.
-        static readonly List<Vector3> Vertices = new List<Vector3>();
-        static readonly List<Vector3> Normals = new List<Vector3>();
-        static readonly List<Vector2> Uvs = new List<Vector2>();
-        static readonly List<int> Triangles = new List<int>();
+        static readonly RoadMeshBuffers Shared = new RoadMeshBuffers();
+
+        // Where the pieces being built go: Shared for Build, the caller's buffers for Append.
+        static RoadMeshBuffers _out = Shared;
+        static List<Vector3> Vertices => _out.Vertices;
+        static List<Vector3> Normals => _out.Normals;
+        static List<Vector2> Uvs => _out.Uvs;
+        static List<int> Triangles => _out.Base;
 
         static readonly Dir8[] Arms = new Dir8[8];
         static readonly List<Vector2> Outline = new List<Vector2>(4);
@@ -45,24 +48,53 @@ namespace CityBuilder.Roads
         /// </summary>
         public static void Build(Mesh mesh, IRoadQuery query, IEnumerable<GridCoord> cells, RoadProfile profile)
         {
-            Vertices.Clear();
-            Normals.Clear();
-            Uvs.Clear();
-            Triangles.Clear();
+            Shared.Clear(null);
 
             foreach (GridCoord cell in cells)
             {
                 if (!query.Has(cell)) continue;
-                AppendCell(cell, query.MaskAt(cell), profile);
+                Append(Shared, cell, query.MaskAt(cell), profile);
             }
 
-            mesh.Clear();
-            mesh.indexFormat = Vertices.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
-            mesh.SetVertices(Vertices);
-            mesh.SetNormals(Normals);
-            mesh.SetUVs(0, Uvs);
-            mesh.SetTriangles(Triangles, 0);
-            mesh.RecalculateBounds();
+            Shared.WriteTo(mesh);
+        }
+
+        /// <summary>Adds one cell's pieces to the base submesh of <paramref name="target"/>.</summary>
+        public static void Append(RoadMeshBuffers target, GridCoord cell, Dir8 mask, RoadProfile profile)
+        {
+            _out = target;
+            try
+            {
+                AppendCell(cell, mask, profile);
+            }
+            finally
+            {
+                _out = Shared;
+            }
+        }
+
+        /// <summary>
+        /// Adds the junction where two diagonals cross at a cell corner: four arms out from the corner,
+        /// one along each diagonal, reaching <see cref="RoadChains.CrossingReach"/> cells to where the
+        /// roads' splines begin. <paramref name="corner"/> is in grid units.
+        /// </summary>
+        public static void AppendCornerCrossing(RoadMeshBuffers target, Vector2 corner, RoadProfile profile)
+        {
+            _out = target;
+            try
+            {
+                float cs = profile.CellSize;
+                Vector2 c = corner * cs;
+                float length = RoadChains.CrossingReach * cs;
+                foreach (Dir8 dir in new[] { Dir8.NE, Dir8.SE, Dir8.SW, Dir8.NW })
+                {
+                    AppendStrip(c, Unit(dir), length, profile.HalfRoad, profile.Height, cs);
+                }
+            }
+            finally
+            {
+                _out = Shared;
+            }
         }
 
         static void AppendCell(GridCoord cell, Dir8 mask, RoadProfile profile)
@@ -126,9 +158,14 @@ namespace CityBuilder.Roads
         /// </summary>
         static void AppendArm(Vector2 c, Dir8 dir, float hr, float h, float cs)
         {
-            Vector2 u = Unit(dir);
-            Vector2 r = Right(u);
             float length = 0.5f * cs * (Dir8Util.IsDiagonal(dir) ? Sqrt2 : 1f);
+            AppendStrip(c, Unit(dir), length, hr, h, cs);
+        }
+
+        /// <summary>A strip <paramref name="length"/> long from <paramref name="c"/> along <paramref name="u"/>, curbed on its long sides.</summary>
+        static void AppendStrip(Vector2 c, Vector2 u, float length, float hr, float h, float cs)
+        {
+            Vector2 r = Right(u);
 
             Vector2 leftRoot = c - r * hr;
             Vector2 rightRoot = c + r * hr;

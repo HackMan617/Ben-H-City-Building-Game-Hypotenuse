@@ -25,6 +25,7 @@ namespace CityBuilder.Roads
 
         readonly List<GridCoord> _visible = new List<GridCoord>();
         readonly HashSet<GridCoord> _visibleSet = new HashSet<GridCoord>();
+        readonly RoadMeshBuffers _buffers = new RoadMeshBuffers();
 
         Mesh _mesh;
         MeshFilter _filter;
@@ -89,7 +90,11 @@ namespace CityBuilder.Roads
                 return;
             }
 
-            RoadMeshBuilder.Build(_mesh, query, _visible, profile);
+            // Shaped like the real road, curves included, but always generated so the one ghost
+            // material covers all of it.
+            _buffers.Clear(null);
+            RoadGeometry.Build(_buffers, query, _visible, profile, null);
+            _buffers.WriteTo(_mesh);
 
             Material material = erase ? _eraseMaterial
                               : blocked ? (_blockedMaterial != null ? _blockedMaterial : _eraseMaterial)
