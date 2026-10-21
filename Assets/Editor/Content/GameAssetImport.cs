@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.IO;
 using CityBuilder.Content;
 using UnityEditor;
 
@@ -13,9 +15,6 @@ namespace CityBuilder.EditorTools
     {
         public const string Root = "Assets/GameAssets";
 
-        /// <summary>The "roads" bundle's folder; see <see cref="CityBuilder.Roads.RoadModels"/>.</summary>
-        public const string RoadsFolder = Root + "/Roads";
-
         /// <summary>The bundle's own definition, at the top of each bundle folder.</summary>
         public const string BundleDefinitionFile = BundleLoader.BundleDefinitionName + BundleLoader.DefinitionExtension;
 
@@ -23,6 +22,31 @@ namespace CityBuilder.EditorTools
         const int MaxTextureSize = 2048;
 
         public static bool IsGameAsset(string assetPath) => assetPath.StartsWith(Root + "/");
+
+        /// <summary>
+        /// The bundle folder <paramref name="assetPath"/> sits in, e.g. Assets/GameAssets/BasicRoad, or
+        /// null for anything not inside one.
+        /// </summary>
+        public static string BundleFolder(string assetPath)
+        {
+            if (!IsGameAsset(assetPath)) return null;
+
+            int slash = assetPath.IndexOf('/', Root.Length + 1);
+            return slash < 0 ? null : assetPath.Substring(0, slash);
+        }
+
+        /// <summary>
+        /// The "type" in the asset.json of <paramref name="bundleFolder"/>, read straight from disk so it
+        /// works before that file is imported. Null when it is missing or broken.
+        /// </summary>
+        public static ModelType? BundleType(string bundleFolder)
+        {
+            string path = bundleFolder + "/" + BundleDefinitionFile;
+            if (!File.Exists(path)) return null;
+
+            ModelDefinition definition = ModelDefinitionParser.Parse(File.ReadAllText(path), path, new List<string>());
+            return definition?.Type;
+        }
 
         void OnPreprocessModel()
         {
@@ -32,8 +56,10 @@ namespace CityBuilder.EditorTools
 
             // Smaller meshes on disk, and no CPU-side copy kept in memory once uploaded to the GPU.
             model.meshCompression = ModelImporterMeshCompression.Medium;
-            // Road models are copied and bent along splines at runtime, which needs the mesh data on the CPU.
-            model.isReadable = assetPath.StartsWith(RoadsFolder + "/");
+            // Path models -- roads -- are copied and bent along splines at runtime, which needs the mesh
+            // data on the CPU. Put the bundle's asset.json in place before its models so this sees it.
+            string bundle = BundleFolder(assetPath);
+            model.isReadable = bundle != null && BundleType(bundle) == ModelType.Path;
             model.optimizeMeshPolygons = true;
             model.optimizeMeshVertices = true;
 

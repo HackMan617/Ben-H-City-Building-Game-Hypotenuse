@@ -156,8 +156,9 @@ namespace CityBuilder.Roads
     }
 
     /// <summary>
-    /// The road models found in the "roads" asset bundle, Assets/GameAssets/Roads. Every one is
-    /// optional; whatever is missing is generated.
+    /// The models of one road type. Each road type is its own bundle -- a folder under
+    /// Assets/GameAssets such as BasicRoad -- whose asset.json has "type": "path"; the player picks
+    /// between them. Every model is optional; whatever is missing is generated.
     ///
     ///   RoadSegment   a stretch of road, bent along every spline. Runs along +Z, centred on X, its
     ///                 road surface up from Y = 0; any length, repeated to fill the spline. Give it a
@@ -174,7 +175,6 @@ namespace CityBuilder.Roads
     /// </summary>
     public sealed class RoadModels
     {
-        public const string BundleName = "roads";
         public const string SegmentName = "RoadSegment";
         public const string CrossName = "RoadCross";
         public const string TeeName = "RoadTee";
@@ -186,27 +186,27 @@ namespace CityBuilder.Roads
         public RoadPiece End;
 
         /// <summary>
-        /// Loads what the bundle has. Returns null when there is no roads bundle, which is not an
-        /// error: the roads are generated.
+        /// Loads what the road type's bundle has. Returns null when there is no such bundle, which is
+        /// not an error: the roads are generated.
         /// </summary>
-        public static async Awaitable<RoadModels> LoadAsync(BundleLoader loader)
+        public static async Awaitable<RoadModels> LoadAsync(BundleLoader loader, string bundleName)
         {
-            if (!loader.Initialize() || !loader.HasBundle(BundleName)) return null;
+            if (!loader.Initialize() || !loader.HasBundle(bundleName)) return null;
 
             var models = new RoadModels
             {
-                Segment = await LoadPieceAsync(loader, SegmentName),
-                Cross = await LoadPieceAsync(loader, CrossName),
-                Tee = await LoadPieceAsync(loader, TeeName),
-                End = await LoadPieceAsync(loader, EndName),
+                Segment = await LoadPieceAsync(loader, bundleName, SegmentName),
+                Cross = await LoadPieceAsync(loader, bundleName, CrossName),
+                Tee = await LoadPieceAsync(loader, bundleName, TeeName),
+                End = await LoadPieceAsync(loader, bundleName, EndName),
             };
             return models;
         }
 
         // The geometry is copied out, but the bundle stays open: model materials and textures live there.
-        static async Awaitable<RoadPiece> LoadPieceAsync(BundleLoader loader, string name)
+        static async Awaitable<RoadPiece> LoadPieceAsync(BundleLoader loader, string bundleName, string name)
         {
-            GameObject prefab = await loader.LoadOptionalAssetAsync<GameObject>(BundleName, name);
+            GameObject prefab = await loader.LoadOptionalAssetAsync<GameObject>(bundleName, name);
             return prefab != null ? RoadPiece.FromPrefab(prefab) : null;
         }
 

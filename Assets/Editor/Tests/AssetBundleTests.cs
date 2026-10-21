@@ -96,6 +96,15 @@ namespace CityBuilder.Tests
             StringAssert.Contains("Assets/GameAssets/BasicRoad/asset.json", errors[0]);
         }
 
+        [Test]
+        public void BundleFolderAndTypeAreReadFromThePath()
+        {
+            Assert.AreEqual("Assets/GameAssets/BasicRoad", GameAssetImport.BundleFolder("Assets/GameAssets/BasicRoad/Models/RoadSegment.fbx"));
+            Assert.IsNull(GameAssetImport.BundleFolder("Assets/GameAssets/README.txt"));
+            Assert.IsNull(GameAssetImport.BundleFolder("Assets/Materials/Road.mat"));
+            Assert.AreEqual(ModelType.Path, GameAssetImport.BundleType("Assets/GameAssets/BasicRoad"));
+        }
+
         [TestCase(BuildTarget.Android, RuntimePlatform.Android)]
         [TestCase(BuildTarget.iOS, RuntimePlatform.IPhonePlayer)]
         [TestCase(BuildTarget.StandaloneWindows64, RuntimePlatform.WindowsPlayer)]

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using CityBuilder.Roads;
 using UnityEditor;
 using UnityEngine;
@@ -6,20 +7,37 @@ using UnityEngine;
 namespace CityBuilder.EditorTools
 {
     /// <summary>
-    /// Writes a stand-in road model into Assets/GameAssets/Roads so the "roads" bundle has something
-    /// in it until real models arrive: a RoadSegment prefab with an asphalt strip and a dashed centre
-    /// line, sized to the default road profile. Replace RoadSegment.prefab with a real model of the same
-    /// name -- an .fbx called RoadSegment works -- and rebuild the bundles. See <see cref="RoadModels"/>
-    /// for what else the bundle may hold.
+    /// Writes a stand-in road type into Assets/GameAssets/BasicRoad so there is a road to pick until
+    /// real models arrive: an asset.json marking the bundle as a path, and a RoadSegment prefab with an
+    /// asphalt strip and a dashed centre line, sized to the default road profile. Replace
+    /// RoadSegment.prefab with a real model of the same name -- an .fbx called RoadSegment works -- and
+    /// rebuild the bundles. See <see cref="RoadModels"/> for what else the bundle may hold.
     /// </summary>
     public static class RoadPlaceholderModels
     {
-        const string Folder = GameAssetImport.RoadsFolder;
+        const string FolderName = "BasicRoad";
+        const string Folder = GameAssetImport.Root + "/" + FolderName;
+
+        const string Definition = @"{
+  ""schemaVersion"": 1,
+  ""type"": ""path"",
+  ""id"": ""basic-road"",
+  ""displayName"": ""Basic Road""
+}
+";
 
         [MenuItem("City Builder/Asset Bundles/Create Placeholder Road Models")]
         public static void Create()
         {
-            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder(GameAssetImport.Root, "Roads");
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder(GameAssetImport.Root, FolderName);
+
+            // Written first, so models imported into the folder afterwards get Read/Write.
+            string definitionPath = $"{Folder}/{GameAssetImport.BundleDefinitionFile}";
+            if (!File.Exists(definitionPath))
+            {
+                File.WriteAllText(definitionPath, Definition);
+                AssetDatabase.ImportAsset(definitionPath);
+            }
 
             Material asphalt = CreateMaterial("RoadAsphalt", new Color(0.2f, 0.21f, 0.23f), 0.18f);
             Material marking = CreateMaterial("RoadMarking", new Color(0.92f, 0.9f, 0.82f), 0.3f);

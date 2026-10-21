@@ -9,9 +9,11 @@ namespace CityBuilder.Roads
     /// <summary>
     /// Owns the committed road network, its geometry, and the undo stack.
     ///
-    /// Geometry comes from <see cref="RoadGeometry"/>: runs of road are splines with the road model
-    /// from the "roads" bundle bent along them, junctions are models or generated pieces. The bundle
-    /// loads in the background; until it lands, or when there is none, everything is generated. The
+    /// Geometry comes from <see cref="RoadGeometry"/>: runs of road are splines with the selected road
+    /// type's model bent along them, junctions are models or generated pieces. Road types are the
+    /// bundles whose asset.json says "type": "path"; they are found and the selected one loaded in the
+    /// background, and until it lands, or when there are none, everything is generated. The whole
+    /// network takes the selected type's look -- cells do not remember a type of their own yet. The
     /// splines are kept on a child <see cref="SplineContainer"/> so they can be seen in the Scene view.
     ///
     /// The whole network is remeshed on every change. That is well inside budget for a prototype at
@@ -24,13 +26,19 @@ namespace CityBuilder.Roads
         [SerializeField] CityGrid _grid;
         [SerializeField] Material _roadMaterial;
 
-        [Tooltip("Load road models from the \"roads\" asset bundle. Off, every road is generated.")]
+        [Tooltip("Load road models from the road type bundles. Off, every road is generated.")]
         [SerializeField] bool _useRoadModels = true;
+
+        [Tooltip("Bundle name of the road type selected at start. Empty or missing, the first one found is used.")]
+        [SerializeField] string _startRoadType = "basicroad";
 
         readonly List<GridCoord> _scratch = new List<GridCoord>();
         readonly RoadMeshBuffers _buffers = new RoadMeshBuffers();
         readonly List<Spline> _splines = new List<Spline>();
         readonly List<Material> _materials = new List<Material>();
+
+        readonly List<BundleInfo> _roadTypes = new List<BundleInfo>();
+        readonly Dictionary<string, RoadModels> _loadedModels = new Dictionary<string, RoadModels>();
 
         RoadModels _models;
         SplineContainer _splineView;
@@ -45,6 +53,12 @@ namespace CityBuilder.Roads
 
         /// <summary>The spline of every run of road, in this object's space, as of the last rebuild.</summary>
         public IReadOnlyList<Spline> Splines => _splines;
+
+        /// <summary>The road types the player can pick from, once found; empty when there are none.</summary>
+        public IReadOnlyList<BundleInfo> RoadTypes => _roadTypes;
+
+        /// <summary>The road type roads are built with, or null while none is found.</summary>
+        public BundleInfo SelectedRoadType { get; private set; }
 
         /// <summary>Raised after the network changes, so UI can refresh counts and undo state.</summary>
         public event System.Action Changed;
@@ -75,8 +89,34 @@ namespace CityBuilder.Roads
         {
             if (!_useRoadModels) return;
 
-            RoadModels models = await RoadModels.LoadAsync(BundleLoader.Shared);
-            if (this == null || models == null) return;
+            List<BundleInfo> found = await BundleLoader.Shared.LoadBundleDefinitionsAsync(ModelType.Path);
+            if (this == null || found.Count == 0) return;
+
+            _roadTypes.AddRange(found);
+            BundleInfo start = _roadTypes.Find(t => t.Name == _startRoadType) ?? _roadTypes[0];
+            SelectRoadType(start);
+        }
+
+        /// <summary>
+        /// Builds every road with <paramref name="roadType"/>'s models from now on. Its bundle loads in
+        /// the background the first time; until then the roads keep their current look.
+        /// </summary>
+        public async void SelectRoadType(BundleInfo roadType)
+        {
+            if (roadType == null || roadType == SelectedRoadType) return;
+
+            SelectedRoadType = roadType;
+            Changed?.Invoke();
+
+            if (!_loadedModels.TryGetValue(roadType.Name, out RoadModels models))
+            {
+                models = await RoadModels.LoadAsync(BundleLoader.Shared, roadType.Name);
+                if (this == null) return;
+                _loadedModels[roadType.Name] = models;
+            }
+
+            // Another type may have been picked while this one loaded.
+            if (SelectedRoadType != roadType) return;
 
             _models = models;
             Rebuild();
