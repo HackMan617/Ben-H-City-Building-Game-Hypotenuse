@@ -10,7 +10,9 @@ namespace CityBuilder.Content
     /// Models arrive as prefabs: an .fbx under Assets/GameAssets is imported by the editor and packed
     /// into a bundle, so <c>LoadAssetAsync&lt;GameObject&gt;("houses", "Cottage")</c> returns the
     /// model ready to instantiate. The device never parses FBX itself. A model's behaviour and
-    /// technical data ships beside it as Cottage.json -- see <see cref="LoadDefinitionAsync"/>.
+    /// technical data ships beside it as Cottage.json -- see <see cref="LoadDefinitionAsync"/>. Every
+    /// bundle also carries asset.json, saying what kind of content it holds -- see
+    /// <see cref="LoadBundleDefinitionsAsync"/>.
     ///
     /// Every successful load holds its bundle open; call <see cref="Release"/> once per load when
     /// the asset and anything instantiated from it are gone. Releasing early unloads the meshes and
@@ -89,6 +91,14 @@ namespace CityBuilder.Content
         /// <summary>True when a bundle of this name was built.</summary>
         public bool HasBundle(string bundleName) => _built.Contains(bundleName);
 
+        /// <summary>Every bundle that was built, in name order. Empty until <see cref="Initialize"/> succeeds.</summary>
+        public List<string> BundleNames()
+        {
+            var names = new List<string>(_built);
+            names.Sort(System.StringComparer.Ordinal);
+            return names;
+        }
+
         /// <summary>
         /// Loads <paramref name="assetName"/> (its file name, without extension) from
         /// <paramref name="bundleName"/>. Returns null on failure, and holds nothing open then.
@@ -158,6 +168,25 @@ namespace CityBuilder.Content
         }
 
         /// <summary>
+        /// Reads the asset.json of every bundle whose "type" is <paramref name="type"/>, in bundle name
+        /// order. Each bundle is opened briefly to read it; bundles with a missing or broken asset.json
+        /// are logged and left out. Holds nothing open afterwards.
+        /// </summary>
+        public async Awaitable<List<BundleInfo>> LoadBundleDefinitionsAsync(ModelType type)
+        {
+            var found = new List<BundleInfo>();
+            if (!IsInitialized && !Initialize()) return found;
+
+            foreach (string bundleName in BundleNames())
+            {
+                ModelDefinition definition = await LoadDefinitionAsync(bundleName, BundleDefinitionName);
+                if (definition != null && definition.Type == type)
+                    found.Add(new BundleInfo { Name = bundleName, Definition = definition });
+            }
+            return found;
+        }
+
+        /// <summary>
         /// Loads a model's prefab and its definition from a functional bundle, instantiates the prefab,
         /// and runs the scripts riding on it: every <see cref="IBundleScript"/> component is handed the
         /// definition through <see cref="BundleScriptReader"/>. Returns the live instance, or null when
@@ -192,6 +221,9 @@ namespace CityBuilder.Content
         public static string DefinitionAssetName(string modelName) => modelName + DefinitionExtension;
 
         public const string DefinitionExtension = ".json";
+
+        /// <summary>The bundle's own definition, asset.json at the top of its folder, loaded like a model named "asset".</summary>
+        public const string BundleDefinitionName = "asset";
 
         /// <summary>Gives back one load's hold on <paramref name="bundleName"/> and its dependencies.</summary>
         public void Release(string bundleName)
@@ -293,5 +325,15 @@ namespace CityBuilder.Content
             if (entry.Bundle != null) entry.Bundle.Unload(true);
             else if (!entry.Request.isDone) entry.Request.completed += _ => UnloadLate(entry.Request);
         }
+    }
+
+    /// <summary>A built bundle and the asset.json that says what it holds.</summary>
+    public sealed class BundleInfo
+    {
+        public string Name;
+        public ModelDefinition Definition;
+
+        /// <summary>The definition's display name, or the bundle's name when it has none.</summary>
+        public string DisplayName => string.IsNullOrWhiteSpace(Definition.DisplayName) ? Name : Definition.DisplayName;
     }
 }

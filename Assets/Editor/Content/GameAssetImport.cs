@@ -1,3 +1,4 @@
+using CityBuilder.Content;
 using UnityEditor;
 
 namespace CityBuilder.EditorTools
@@ -14,6 +15,9 @@ namespace CityBuilder.EditorTools
 
         /// <summary>The "roads" bundle's folder; see <see cref="CityBuilder.Roads.RoadModels"/>.</summary>
         public const string RoadsFolder = Root + "/Roads";
+
+        /// <summary>The bundle's own definition, at the top of each bundle folder.</summary>
+        public const string BundleDefinitionFile = BundleLoader.BundleDefinitionName + BundleLoader.DefinitionExtension;
 
         /// <summary>Largest texture side on import; phones rarely gain from more and pay for it in memory.</summary>
         const int MaxTextureSize = 2048;

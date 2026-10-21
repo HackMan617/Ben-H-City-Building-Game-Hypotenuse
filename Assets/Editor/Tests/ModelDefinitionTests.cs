@@ -197,13 +197,14 @@ namespace CityBuilder.Tests
             var errors = new List<string>();
             List<AssetBundleBuild> builds = AssetBundleBuilder.Plan(new[]
             {
+                "Assets/GameAssets/Houses/asset.json",
                 "Assets/GameAssets/Houses/Cottage.fbx",
                 "Assets/GameAssets/Houses/Cottage.json",
             }, errors);
 
             Assert.IsEmpty(errors);
             Assert.AreEqual("houses", builds[0].assetBundleName);
-            CollectionAssert.AreEquivalent(new[] { "Cottage", "Cottage.json" }, builds[0].addressableNames);
+            CollectionAssert.AreEquivalent(new[] { "asset.json", "Cottage", "Cottage.json" }, builds[0].addressableNames);
             Assert.AreEqual("Cottage.json", BundleLoader.DefinitionAssetName("Cottage"));
         }
     }

@@ -17,7 +17,9 @@ namespace CityBuilder.EditorTools
     /// Assets/GameAssets/Houses/Cottage.fbx is loaded as bundle "houses", asset "Cottage". A model's
     /// JSON definition keeps its extension -- Cottage.json loads as "Cottage.json" -- so the pair can
     /// share a name, and every definition is parsed before building so a broken one stops the build.
-    /// Files sitting directly in Assets/GameAssets belong to no bundle.
+    /// Every bundle needs an asset.json at the top of its folder, saying with "type" what it holds;
+    /// the game reads it to tell road types from buildings. Files sitting directly in
+    /// Assets/GameAssets belong to no bundle.
     ///
     /// Bundles are written to &lt;project&gt;/AssetBundles/&lt;Platform&gt; and LZ4-compressed, which
     /// lets a phone read them straight from storage instead of unpacking them into memory. Making a
@@ -91,10 +93,13 @@ namespace CityBuilder.EditorTools
         /// Groups asset paths into bundles by their first folder under Assets/GameAssets. Scripts and
         /// files outside a group folder are skipped. Two assets in one bundle with the same load name
         /// are reported in <paramref name="errors"/>, since only one could be loaded; see <see cref="LoadName"/>.
+        /// So is a bundle without an asset.json at the top of its folder.
         /// </summary>
         public static List<AssetBundleBuild> Plan(IEnumerable<string> assetPaths, List<string> errors)
         {
             var groups = new SortedDictionary<string, List<string>>();
+            var folders = new Dictionary<string, string>();
+            var described = new HashSet<string>();
 
             foreach (string path in assetPaths)
             {
@@ -108,6 +113,17 @@ namespace CityBuilder.EditorTools
                 string bundle = relative.Substring(0, slash).ToLowerInvariant();
                 if (!groups.TryGetValue(bundle, out List<string> members)) groups.Add(bundle, members = new List<string>());
                 members.Add(path);
+
+                folders[bundle] = GameAssetImport.Root + "/" + relative.Substring(0, slash);
+                if (relative.Substring(slash + 1).Equals(GameAssetImport.BundleDefinitionFile, System.StringComparison.OrdinalIgnoreCase))
+                    described.Add(bundle);
+            }
+
+            foreach (string bundle in groups.Keys.Where(b => !described.Contains(b)))
+            {
+                errors.Add($"Bundle '{bundle}' has no {GameAssetImport.BundleDefinitionFile}. Add " +
+                           $"{folders[bundle]}/{GameAssetImport.BundleDefinitionFile} with an \"id\" and a " +
+                           "\"type\" of structure or path.");
             }
 
             var builds = new List<AssetBundleBuild>();

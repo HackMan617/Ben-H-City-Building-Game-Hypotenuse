@@ -21,8 +21,10 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             List<AssetBundleBuild> builds = Plan(errors,
+                "Assets/GameAssets/Houses/asset.json",
                 "Assets/GameAssets/Houses/Cottage.fbx",
                 "Assets/GameAssets/Houses/Textures/Brick.png",
+                "Assets/GameAssets/Trees/asset.json",
                 "Assets/GameAssets/Trees/Oak.fbx");
 
             Assert.IsEmpty(errors);
@@ -30,12 +32,13 @@ namespace CityBuilder.Tests
 
             Assert.AreEqual("houses", builds[0].assetBundleName);
             CollectionAssert.AreEqual(
-                new[] { "Assets/GameAssets/Houses/Cottage.fbx", "Assets/GameAssets/Houses/Textures/Brick.png" },
+                new[] { "Assets/GameAssets/Houses/Cottage.fbx", "Assets/GameAssets/Houses/Textures/Brick.png",
+                        "Assets/GameAssets/Houses/asset.json" },
                 builds[0].assetNames);
-            CollectionAssert.AreEqual(new[] { "Cottage", "Brick" }, builds[0].addressableNames);
+            CollectionAssert.AreEqual(new[] { "Cottage", "Brick", "asset.json" }, builds[0].addressableNames);
 
             Assert.AreEqual("trees", builds[1].assetBundleName);
-            CollectionAssert.AreEqual(new[] { "Oak" }, builds[1].addressableNames);
+            CollectionAssert.AreEqual(new[] { "Oak", "asset.json" }, builds[1].addressableNames);
         }
 
         [Test]
@@ -57,6 +60,7 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             Plan(errors,
+                "Assets/GameAssets/Houses/asset.json",
                 "Assets/GameAssets/Houses/Cottage.fbx",
                 "Assets/GameAssets/Houses/Old/Cottage.fbx");
 
@@ -69,10 +73,27 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             Plan(errors,
+                "Assets/GameAssets/Houses/asset.json",
                 "Assets/GameAssets/Houses/Roof.fbx",
+                "Assets/GameAssets/Shops/asset.json",
                 "Assets/GameAssets/Shops/Roof.fbx");
 
             Assert.IsEmpty(errors);
+        }
+
+        [Test]
+        public void EveryBundleNeedsAnAssetJsonAtItsTop()
+        {
+            var errors = new List<string>();
+            Plan(errors,
+                "Assets/GameAssets/Houses/asset.json",
+                "Assets/GameAssets/Houses/Cottage.fbx",
+                "Assets/GameAssets/BasicRoad/RoadSegment.fbx",
+                "Assets/GameAssets/BasicRoad/Old/asset.json");
+
+            Assert.AreEqual(1, errors.Count);
+            StringAssert.Contains("'basicroad'", errors[0]);
+            StringAssert.Contains("Assets/GameAssets/BasicRoad/asset.json", errors[0]);
         }
 
         [TestCase(BuildTarget.Android, RuntimePlatform.Android)]
