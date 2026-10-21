@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "type": "structure",
   "id": "cottage",
   "displayName": "Cottage",
   "tags": [ "residential" ],

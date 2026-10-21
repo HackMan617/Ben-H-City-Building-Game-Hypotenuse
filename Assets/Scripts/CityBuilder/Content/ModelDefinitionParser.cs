@@ -51,6 +51,9 @@ namespace CityBuilder.Content
 
         static void Validate(ModelDefinition definition, string source, List<string> errors)
         {
+            if (definition.Type == null) errors.Add($"{source}: \"type\" is required: structure or path.");
+            else if (!Enum.IsDefined(typeof(ModelType), definition.Type.Value))
+                errors.Add($"{source}: \"type\" must be structure or path.");
             if (string.IsNullOrWhiteSpace(definition.Id)) errors.Add($"{source}: \"id\" is required.");
             if (definition.Cost < 0) errors.Add($"{source}: \"cost\" cannot be negative.");
 

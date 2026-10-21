@@ -12,6 +12,7 @@ namespace CityBuilder.Buildings
             {
                 new ModelDefinition
                 {
+                    Type = ModelType.Structure,
                     Id = "cottage",
                     DisplayName = "Cottage",
                     Tags = new List<string> { "residential" },
@@ -22,6 +23,7 @@ namespace CityBuilder.Buildings
                 },
                 new ModelDefinition
                 {
+                    Type = ModelType.Structure,
                     Id = "shop",
                     DisplayName = "Shop",
                     Tags = new List<string> { "commercial" },
@@ -32,6 +34,7 @@ namespace CityBuilder.Buildings
                 },
                 new ModelDefinition
                 {
+                    Type = ModelType.Structure,
                     Id = "factory",
                     DisplayName = "Factory",
                     Tags = new List<string> { "industrial" },
@@ -42,6 +45,7 @@ namespace CityBuilder.Buildings
                 },
                 new ModelDefinition
                 {
+                    Type = ModelType.Structure,
                     Id = "park",
                     DisplayName = "Park",
                     Tags = new List<string> { "leisure" },

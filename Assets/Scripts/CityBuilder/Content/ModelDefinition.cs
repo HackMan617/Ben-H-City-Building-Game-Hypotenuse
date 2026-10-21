@@ -7,10 +7,12 @@ namespace CityBuilder.Content
 {
     /// <summary>
     /// The behaviour and technical data that ships beside a model: Cottage.json next to Cottage.fbx
-    /// in the same bundle. Read with <see cref="ModelDefinitionParser"/>.
+    /// in the same bundle. Every bundle also has one for itself, asset.json at the top of its folder,
+    /// saying what kind of content the bundle holds. Read with <see cref="ModelDefinitionParser"/>.
     ///
     ///   {
     ///     "schemaVersion": 1,
+    ///     "type": "structure",
     ///     "id": "cottage",
     ///     "displayName": "Cottage",
     ///     "tags": [ "residential" ],
@@ -32,6 +34,9 @@ namespace CityBuilder.Content
     {
         /// <summary>Bumped when a change would make older files mean something different.</summary>
         public int SchemaVersion = 1;
+
+        /// <summary>What kind of thing this is. Required: null only until the parser rejects it.</summary>
+        public ModelType? Type;
 
         /// <summary>Stable identifier, unique across all bundles; what saves and other data refer to.</summary>
         public string Id;
@@ -72,6 +77,19 @@ namespace CityBuilder.Content
             }
             return false;
         }
+    }
+
+    /// <summary>What a definition describes, from its "type" field.</summary>
+    public enum ModelType
+    {
+        /// <summary>Something placed on the grid by its footprint: a house, a shop, a park.</summary>
+        Structure,
+
+        /// <summary>
+        /// Something drawn cell by cell along a path. A path bundle holds one road type's models; see
+        /// <see cref="CityBuilder.Roads.RoadModels"/>.
+        /// </summary>
+        Path,
     }
 
     /// <summary>

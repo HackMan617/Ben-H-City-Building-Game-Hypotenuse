@@ -21,6 +21,7 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             ModelDefinition definition = Parse(@"{
+                ""type"": ""structure"",
                 ""schemaVersion"": 1,
                 ""id"": ""cottage"",
                 ""displayName"": ""Cottage"",
@@ -33,6 +34,7 @@ namespace CityBuilder.Tests
             }", errors);
 
             Assert.IsEmpty(errors);
+            Assert.AreEqual(ModelType.Structure, definition.Type);
             Assert.AreEqual("cottage", definition.Id);
             Assert.AreEqual("Cottage", definition.DisplayName);
             Assert.AreEqual(2, definition.Footprint.Width);
@@ -47,6 +49,7 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             ModelDefinition definition = Parse(@"{
+                ""type"": ""structure"",
                 ""id"": ""workshop"",
                 ""tags"": [ ""industrial"", ""small"" ],
                 ""footprint"": {
@@ -87,7 +90,7 @@ namespace CityBuilder.Tests
         public void MissingOptionalFieldsTakeDefaults()
         {
             var errors = new List<string>();
-            ModelDefinition definition = Parse(@"{ ""id"": ""tree"" }", errors);
+            ModelDefinition definition = Parse(@"{ ""type"": ""structure"", ""id"": ""tree"" }", errors);
 
             Assert.IsEmpty(errors);
             Assert.AreEqual(1, definition.Footprint.Width);
@@ -109,6 +112,7 @@ namespace CityBuilder.Tests
         {
             var errors = new List<string>();
             ModelDefinition definition = Parse(@"{
+                ""type"": ""structure"",
                 ""id"": ""tower"",
                 ""someFutureField"": true,
                 ""behaviors"": [ { ""type"": ""broadcast"", ""range"": 12 } ]
@@ -121,35 +125,56 @@ namespace CityBuilder.Tests
         }
 
         [Test]
+        public void ReadsAPathType()
+        {
+            var errors = new List<string>();
+            ModelDefinition definition = Parse(@"{ ""type"": ""Path"", ""id"": ""basic-road"" }", errors);
+
+            Assert.IsEmpty(errors);
+            Assert.AreEqual(ModelType.Path, definition.Type);
+        }
+
+        [TestCase(@"{ ""id"": ""a"" }")]
+        [TestCase(@"{ ""type"": ""bridge"", ""id"": ""a"" }")]
+        [TestCase(@"{ ""type"": 7, ""id"": ""a"" }")]
+        public void TypeMustBeStructureOrPath(string json)
+        {
+            var errors = new List<string>();
+            Assert.IsNull(Parse(json, errors));
+            Assert.IsNotEmpty(errors);
+            StringAssert.Contains("type", errors[0]);
+        }
+
+        [Test]
         public void BrokenJsonIsAnError()
         {
             var errors = new List<string>();
-            Assert.IsNull(Parse(@"{ ""id"": ""cottage"", ", errors));
+            Assert.IsNull(Parse(@"{ ""type"": ""structure"", ""id"": ""cottage"", ", errors));
             Assert.AreEqual(1, errors.Count);
             StringAssert.StartsWith("test.json", errors[0]);
         }
 
-        [TestCase(@"{ ""cost"": 5 }", "\"id\"")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 0, ""depth"": 1 } }", "footprint")]
-        [TestCase(@"{ ""id"": ""a"", ""cost"": -1 }", "cost")]
-        [TestCase(@"{ ""id"": ""a"", ""behaviors"": [ { ""residents"": 4 } ] }", "type")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""height"": 0 } }", "height")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""front"": ""up"" } }", "front")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""front"": 7 } }", "front")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""XX"", ""XX"" ] } }", "rows")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""X"" ] } }", "cells[0]")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""X#"" ] } }", "cells[0]")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ "".."" ] } }", "at least one")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ "".X"" ] } }", "anchor")]
-        [TestCase(@"{ ""id"": ""a"", ""footprint"": { ""anchor"": { ""x"": 1, ""z"": 0 } } }", "anchor")]
-        [TestCase(@"{ ""id"": ""a"", ""tags"": [ """" ] }", "tags")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""roadAccess"": { ""distance"": 0 } } }", "roadAccess")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""roadAccess"": { ""side"": ""back"" } } }", "side")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""clearance"": -1 } }", "clearance")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""maxCount"": -1 } }", "maxCount")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""distance"": 2 } ] } }", "exactly one")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""id"": ""b"", ""tag"": ""c"", ""distance"": 2 } ] } }", "exactly one")]
-        [TestCase(@"{ ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""tag"": ""c"" } ] } }", "distance")]
+        [TestCase(@"{ ""type"": ""structure"", ""cost"": 5 }", "\"id\"")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 0, ""depth"": 1 } }", "footprint")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""cost"": -1 }", "cost")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""behaviors"": [ { ""residents"": 4 } ] }", "type")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""height"": 0 } }", "height")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""front"": ""up"" } }", "front")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""front"": 7 } }", "front")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""XX"", ""XX"" ] } }", "rows")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""X"" ] } }", "cells[0]")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ ""X#"" ] } }", "cells[0]")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ "".."" ] } }", "at least one")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""width"": 2, ""cells"": [ "".X"" ] } }", "anchor")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""footprint"": { ""anchor"": { ""x"": 1, ""z"": 0 } } }", "anchor")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""tags"": [ """" ] }", "tags")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""roadAccess"": { ""distance"": 0 } } }", "roadAccess")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""roadAccess"": { ""side"": ""back"" } } }", "side")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""clearance"": -1 } }", "clearance")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""maxCount"": -1 } }", "maxCount")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""distance"": 2 } ] } }", "exactly one")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""id"": ""b"", ""tag"": ""c"", ""distance"": 2 } ] } }", "exactly one")]
+        [TestCase(@"{ ""type"": ""structure"", ""id"": ""a"", ""placement"": { ""keepAwayFrom"": [ { ""tag"": ""c"" } ] } }", "distance")]
         public void NonsenseValuesAreErrors(string json, string mentions)
         {
             var errors = new List<string>();

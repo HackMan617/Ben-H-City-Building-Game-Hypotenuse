@@ -37,6 +37,7 @@ namespace CityBuilder.Tests
 
         // An L: covered at (0,0), (1,0) and (0,1); anchored on (0,0).
         static readonly ModelDefinition L = Model(@"{
+            ""type"": ""structure"",
             ""id"": ""l"",
             ""footprint"": { ""width"": 2, ""depth"": 2, ""cells"": [ ""X."", ""XX"" ] }
         }");
@@ -44,7 +45,7 @@ namespace CityBuilder.Tests
         [Test]
         public void TheAnchorLandsOnTheTargetCell()
         {
-            ModelDefinition wide = Model(@"{ ""id"": ""w"", ""footprint"": { ""width"": 3, ""anchor"": { ""x"": 1, ""z"": 0 } } }");
+            ModelDefinition wide = Model(@"{ ""type"": ""structure"", ""id"": ""w"", ""footprint"": { ""width"": 3, ""anchor"": { ""x"": 1, ""z"": 0 } } }");
             CollectionAssert.AreEquivalent(new[] { C(4, 5), C(5, 5), C(6, 5) },
                                            BuildingPlacement.CellsAt(wide.Footprint, C(5, 5), 0));
         }
@@ -92,7 +93,7 @@ namespace CityBuilder.Tests
         [Test]
         public void RoadAccessOnAnySide()
         {
-            ModelDefinition hut = Model(@"{ ""id"": ""hut"", ""placement"": { ""roadAccess"": {} } }");
+            ModelDefinition hut = Model(@"{ ""type"": ""structure"", ""id"": ""hut"", ""placement"": { ""roadAccess"": {} } }");
 
             Assert.AreEqual(PlacementProblem.NoRoadAccess, Check(hut, C(0, 0)));
             Assert.AreEqual(PlacementProblem.None, Check(hut, C(0, 0), roads: Roads(C(-1, 0))));
@@ -103,7 +104,7 @@ namespace CityBuilder.Tests
         [Test]
         public void RoadAccessOnTheFrontFollowsRotation()
         {
-            ModelDefinition shop = Model(@"{ ""id"": ""shop"", ""placement"": { ""roadAccess"": { ""side"": ""front"" } } }");
+            ModelDefinition shop = Model(@"{ ""type"": ""structure"", ""id"": ""shop"", ""placement"": { ""roadAccess"": { ""side"": ""front"" } } }");
             RoadNetwork south = Roads(C(0, -1));
 
             Assert.AreEqual(PlacementProblem.None, Check(shop, C(0, 0), 0, south));
@@ -117,8 +118,8 @@ namespace CityBuilder.Tests
         [Test]
         public void RoadAccessReachesOverDistanceUnlessABuildingIsInTheWay()
         {
-            ModelDefinition farm = Model(@"{ ""id"": ""farm"", ""placement"": { ""roadAccess"": { ""distance"": 3 } } }");
-            ModelDefinition hut = Model(@"{ ""id"": ""hut"" }");
+            ModelDefinition farm = Model(@"{ ""type"": ""structure"", ""id"": ""farm"", ""placement"": { ""roadAccess"": { ""distance"": 3 } } }");
+            ModelDefinition hut = Model(@"{ ""type"": ""structure"", ""id"": ""hut"" }");
             RoadNetwork roads = Roads(C(3, 0));
 
             Assert.AreEqual(PlacementProblem.None, Check(farm, C(0, 0), 0, roads));
@@ -129,8 +130,8 @@ namespace CityBuilder.Tests
         [Test]
         public void ClearanceIsKeptFromEitherSide()
         {
-            ModelDefinition hut = Model(@"{ ""id"": ""hut"" }");
-            ModelDefinition villa = Model(@"{ ""id"": ""villa"", ""placement"": { ""clearance"": 2 } }");
+            ModelDefinition hut = Model(@"{ ""type"": ""structure"", ""id"": ""hut"" }");
+            ModelDefinition villa = Model(@"{ ""type"": ""structure"", ""id"": ""villa"", ""placement"": { ""clearance"": 2 } }");
 
             Assert.AreEqual(PlacementProblem.None, Check(hut, C(0, 0), 0, null, new PlacedBuilding(hut, C(1, 1), 0)));
             Assert.AreEqual(PlacementProblem.TooClose, Check(villa, C(0, 0), 0, null, new PlacedBuilding(hut, C(2, 2), 0)));
@@ -145,11 +146,13 @@ namespace CityBuilder.Tests
         public void KeepAwayMatchesByTagOrIdFromEitherSide()
         {
             ModelDefinition house = Model(@"{
+                ""type"": ""structure"",
                 ""id"": ""house"", ""tags"": [ ""residential"" ],
                 ""placement"": { ""keepAwayFrom"": [ { ""tag"": ""Industrial"", ""distance"": 3 } ] }
             }");
-            ModelDefinition factory = Model(@"{ ""id"": ""factory"", ""tags"": [ ""industrial"" ] }");
+            ModelDefinition factory = Model(@"{ ""type"": ""structure"", ""id"": ""factory"", ""tags"": [ ""industrial"" ] }");
             ModelDefinition school = Model(@"{
+                ""type"": ""structure"",
                 ""id"": ""school"",
                 ""placement"": { ""keepAwayFrom"": [ { ""id"": ""factory"", ""distance"": 1 } ] }
             }");
@@ -164,7 +167,7 @@ namespace CityBuilder.Tests
         [Test]
         public void MaxCountLimitsHowManyACityHas()
         {
-            ModelDefinition hall = Model(@"{ ""id"": ""townhall"", ""placement"": { ""maxCount"": 1 } }");
+            ModelDefinition hall = Model(@"{ ""type"": ""structure"", ""id"": ""townhall"", ""placement"": { ""maxCount"": 1 } }");
 
             Assert.AreEqual(PlacementProblem.None, Check(hall, C(0, 0)));
             Assert.AreEqual(PlacementProblem.LimitReached, Check(hall, C(0, 0), 0, null, new PlacedBuilding(hall, C(10, 10), 0)));
@@ -173,7 +176,7 @@ namespace CityBuilder.Tests
         [Test]
         public void SeveralProblemsAreReportedTogether()
         {
-            ModelDefinition shop = Model(@"{ ""id"": ""shop"", ""placement"": { ""roadAccess"": {} } }");
+            ModelDefinition shop = Model(@"{ ""type"": ""structure"", ""id"": ""shop"", ""placement"": { ""roadAccess"": {} } }");
             Assert.AreEqual(PlacementProblem.OutOfBounds | PlacementProblem.NoRoadAccess, Check(shop, C(40, 0)));
         }
     }
