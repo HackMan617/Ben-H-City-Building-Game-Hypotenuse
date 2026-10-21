@@ -46,6 +46,7 @@ namespace CityBuilder.View
             DrawBuildButton();
 
             if (_menu.IsOpen) DrawCategoryMenu();
+            if (_menu.Active == BuildCategory.Roads) DrawRoadTypePalette();
             if (_menu.Active == BuildCategory.Buildings) DrawBuildingPalette();
             if (_menu.Active != BuildCategory.None) DrawToolStatus();
             if (_tool != null && _tool.IsAwaitingConfirm) DrawRoadConfirmPrompt();
@@ -96,7 +97,7 @@ namespace CityBuilder.View
         void DrawToolStatus()
         {
             const float width = 240f;
-            var rect = new Rect(16f, 16f, width, 100f);
+            var rect = new Rect(16f, 16f, width, 120f);
             GUI.Box(rect, GUIContent.none, _panel);
 
             GUILayout.BeginArea(new Rect(rect.x + 14f, rect.y + 12f, width - 28f, rect.height - 24f));
@@ -108,6 +109,8 @@ namespace CityBuilder.View
                 case BuildCategory.Roads:
                     int committed = _roads != null && _roads.Network != null ? _roads.Network.Count : 0;
                     int pending = _tool != null ? _tool.PendingCellCount : 0;
+                    if (_roads != null && _roads.SelectedRoadType != null)
+                        GUILayout.Label($"Road: {_roads.SelectedRoadType.DisplayName}", _label);
                     GUILayout.Label("Left drag: draw    Right drag: erase", _label);
                     GUILayout.Label(pending > 0 ? $"{committed} cells  (+{pending} pending)" : $"{committed} cells", _label);
                     if (_tool != null && _tool.IsDragging && _tool.IsBlocked)
@@ -182,14 +185,38 @@ namespace CityBuilder.View
             GUILayout.EndArea();
         }
 
+        void DrawRoadTypePalette()
+        {
+            if (_roads == null || _roads.RoadTypes.Count == 0) return;
+
+            IReadOnlyList<BundleInfo> types = _roads.RoadTypes;
+            int clicked = DrawPaletteRow(types.Count,
+                                         i => types[i].DisplayName,
+                                         i => types[i] == _roads.SelectedRoadType);
+            if (clicked >= 0) _roads.SelectRoadType(types[clicked]);
+        }
+
         void DrawBuildingPalette()
         {
             if (_palette == null || _palette.Count == 0 || _buildingTool == null) return;
 
+            int clicked = DrawPaletteRow(_palette.Count,
+                                         i => _palette[i].DisplayName ?? _palette[i].Id,
+                                         i => _buildingTool.Selected == _palette[i]);
+            if (clicked < 0) return;
+
+            ModelDefinition def = _palette[clicked];
+            if (_buildingTool.Selected == def) _buildingTool.Deselect();
+            else _buildingTool.Select(def);
+        }
+
+        /// <summary>A row of choices above the category menu. Returns the index clicked this frame, or -1.</summary>
+        int DrawPaletteRow(int count, System.Func<int, string> label, System.Func<int, bool> isActive)
+        {
             float btnW = 110f;
             float btnH = 32f;
             float spacing = 6f;
-            float totalW = _palette.Count * btnW + (_palette.Count - 1) * spacing;
+            float totalW = count * btnW + (count - 1) * spacing;
             float startX = Screen.width * 0.5f - totalW * 0.5f;
             float y = Screen.height - 40f - 16f - 36f - 12f - btnH - 12f;
 
@@ -197,19 +224,14 @@ namespace CityBuilder.View
             GUI.Box(new Rect(startX - panelPad, y - panelPad, totalW + panelPad * 2, btnH + panelPad * 2),
                     GUIContent.none, _panel);
 
-            for (int i = 0; i < _palette.Count; i++)
+            int clicked = -1;
+            for (int i = 0; i < count; i++)
             {
-                ModelDefinition def = _palette[i];
                 float x = startX + i * (btnW + spacing);
-                bool active = _buildingTool.Selected == def;
-                GUIStyle style = active ? _categoryButtonActive : _categoryButton;
-                string label = def.DisplayName ?? def.Id;
-                if (GUI.Button(new Rect(x, y, btnW, btnH), label, style))
-                {
-                    if (active) _buildingTool.Deselect();
-                    else _buildingTool.Select(def);
-                }
+                GUIStyle style = isActive(i) ? _categoryButtonActive : _categoryButton;
+                if (GUI.Button(new Rect(x, y, btnW, btnH), label(i), style)) clicked = i;
             }
+            return clicked;
         }
 
         void DrawBuildingConfirmPrompt()
