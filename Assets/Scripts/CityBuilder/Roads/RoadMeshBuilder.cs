@@ -15,9 +15,12 @@ namespace CityBuilder.Roads
     ///   back   fills any gap wider than 180 degrees between two neighbouring arms, i.e. the
     ///          outside of a turn. A dead end's back is a half-round cap instead.
     ///   disc   an isolated cell with no connections at all, a road-width across.
+    ///   curb   at a junction, rounds the street corner between a diagonal arm and its neighbour:
+    ///          the inside of a gap under 180 degrees, curved as far out as the shorter arm reaches.
     ///
     /// A 90-degree turn keeps the squared outer corner it always had; a 135-degree turn (diagonal
     /// into straight) gets a single sharp mitre; every dead end, straight or diagonal, is rounded off.
+    /// Street corners between two straight arms stay square, matching the junction models.
     ///
     /// A 45-degree road cannot stay inside its own square -- at this width it always spills over
     /// the corners of the two cells beside each diagonal step -- so pieces are allowed to overlap.
@@ -89,9 +92,12 @@ namespace CityBuilder.Roads
                 float cs = profile.CellSize;
                 Vector2 c = corner * cs;
                 float length = RoadChains.CrossingReach * cs;
-                foreach (Dir8 dir in new[] { Dir8.NE, Dir8.SE, Dir8.SW, Dir8.NW })
+                Dir8[] dirs = { Dir8.NE, Dir8.SE, Dir8.SW, Dir8.NW };
+                for (int i = 0; i < dirs.Length; i++)
                 {
-                    AppendStrip(c, Unit(dir), length, profile.HalfRoad, profile.Height, cs);
+                    AppendStrip(c, Unit(dirs[i]), length, profile.HalfRoad, profile.Height, cs);
+                    AppendCurbCorner(c, Unit(dirs[i]), length, Unit(dirs[(i + 1) % dirs.Length]), length, 2,
+                                     profile.HalfRoad, profile.Height, cs);
                 }
             }
             finally
@@ -134,6 +140,13 @@ namespace CityBuilder.Roads
 
                 // Up to 180 degrees the arms' own sides already close the outline.
                 if (steps > 4) AppendBack(centre, a, b, steps, hr, h, cs);
+
+                // A street corner at a junction, with a diagonal on either side: round it off.
+                bool diagonal = Dir8Util.IsDiagonal(a) || Dir8Util.IsDiagonal(b);
+                if (count >= 3 && diagonal && steps < 4)
+                {
+                    AppendCurbCorner(centre, Unit(a), ArmLength(a, cs), Unit(b), ArmLength(b, cs), steps, hr, h, cs);
+                }
             }
         }
 
@@ -161,8 +174,56 @@ namespace CityBuilder.Roads
         /// </summary>
         static void AppendArm(Vector2 c, Dir8 dir, float hr, float h, float cs)
         {
-            float length = 0.5f * cs * (Dir8Util.IsDiagonal(dir) ? Sqrt2 : 1f);
-            AppendStrip(c, Unit(dir), length, hr, h, cs);
+            AppendStrip(c, Unit(dir), ArmLength(dir, cs), hr, h, cs);
+        }
+
+        /// <summary>From the cell centre to the cell edge, or to the cell corner for a diagonal.</summary>
+        static float ArmLength(Dir8 dir, float cs) => 0.5f * cs * (Dir8Util.IsDiagonal(dir) ? Sqrt2 : 1f);
+
+        /// <summary>
+        /// Rounds the street corner between two neighbouring arms from <paramref name="c"/>:
+        /// <paramref name="ua"/>, then <paramref name="ub"/> clockwise from it, <paramref name="steps"/>
+        /// 45-degree steps apart. Their facing sides meet at a sharp corner; this fills it with a
+        /// circular arc tangent to both, reaching back along each side to the end of the shorter arm,
+        /// where the road beyond carries the straight curb on. Nothing is added when the sides only
+        /// meet past that point -- a 45-degree gap on a full-width road.
+        /// </summary>
+        static void AppendCurbCorner(Vector2 c, Vector2 ua, float lengthA, Vector2 ub, float lengthB, int steps,
+                                     float hr, float h, float cs)
+        {
+            float half = steps * Mathf.PI / 8f;
+            float sharp = hr / Mathf.Tan(half);
+            float reach = Mathf.Min(lengthA, lengthB) - sharp;
+            if (reach <= 0.0001f * cs) return;
+
+            Vector2 corner = c + Right(ua) * hr + ua * sharp;
+            Vector2 start = corner + ua * reach;
+            Vector2 end = corner + ub * reach;
+
+            // The arc's centre is off the road, square to the first side from where the curve leaves it.
+            float radius = reach * Mathf.Tan(half);
+            Vector2 hub = start + Right(ua) * radius;
+            Vector2 from = start - hub;
+            float sweep = Vector2.SignedAngle(from, end - hub);
+            int segments = Mathf.Max(2, Mathf.CeilToInt(CapSegments * Mathf.Abs(sweep) / 180f));
+
+            Outline.Clear();
+            for (int i = 0; i <= segments; i++)
+            {
+                Outline.Add(hub + (Vector2)(Quaternion.Euler(0f, 0f, sweep * i / segments) * from));
+            }
+            Outline[segments] = end;
+
+            // From the sharp corner the arc runs clockwise, so a fan from there is front-facing.
+            for (int i = 0; i < segments; i++) AddTopTriangle(corner, Outline[i], Outline[i + 1], h, cs);
+
+            if (h <= 0.0001f) return;
+            for (int i = 0; i < segments; i++)
+            {
+                Vector2 p = Outline[i];
+                Vector2 q = Outline[i + 1];
+                AddWall(p, q, (hub - (p + q) * 0.5f).normalized, h, cs);
+            }
         }
 
         /// <summary>A strip <paramref name="length"/> long from <paramref name="c"/> along <paramref name="u"/>, curbed on its long sides.</summary>

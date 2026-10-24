@@ -536,6 +536,35 @@ namespace CityBuilder.Tests
         }
 
         [Test]
+        public void MeshBuilder_DiagonalJunctionRoundsItsStreetCorner()
+        {
+            // A diagonal forking south-east off an east-west road. The 135-degree corner between the
+            // diagonal and the west arm is a circular arc from the cell's south-west corner to where
+            // the diagonal arm ends, centred off the road at (0, -0.71).
+            var network = NetworkWithStroke(C(-1, 0), C(0, 0), C(1, 0));
+            Stroke(network, C(0, 0), C(1, -1));
+            Assert.AreEqual(Dir8.W | Dir8.E | Dir8.SE, network.MaskAt(C(0, 0)));
+
+            Mesh mesh = BuildMesh(network, new[] { C(0, 0) });
+            AssertFrontFacing(mesh);
+
+            float cs = RoadProfile.Default.CellSize;
+            var hub = new Vector2(0f, -0.5f * Mathf.Sqrt(2f)) * cs;
+            float radius = 0.5f * Mathf.Sqrt(2f) * cs;
+
+            int onArc = 0;
+            foreach (Vector3 v in mesh.vertices)
+            {
+                var p = new Vector2(v.x, v.z);
+                bool inCorner = p.x > 0.01f * cs && p.x < 0.49f * cs && p.y < -0.01f * cs;
+                if (v.y > 0f && inCorner && Mathf.Abs(Vector2.Distance(p, hub) - radius) < 1e-3f) onArc++;
+            }
+
+            Assert.Greater(onArc, 0, "the street corner between a diagonal and a straight arm should be curved");
+            Object.DestroyImmediate(mesh);
+        }
+
+        [Test]
         public void MeshBuilder_SkipsCellsThatHoldNoRoad()
         {
             var network = NetworkWithStroke(C(0, 0));
