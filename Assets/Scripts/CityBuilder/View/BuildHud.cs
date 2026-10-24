@@ -3,6 +3,7 @@ using CityBuilder.Buildings;
 using CityBuilder.BuildTools;
 using CityBuilder.Content;
 using CityBuilder.Roads;
+using CityBuilder.Saves;
 using UnityEngine;
 
 namespace CityBuilder.View
@@ -15,8 +16,15 @@ namespace CityBuilder.View
         [SerializeField] BuildingBuildTool _buildingTool;
         [SerializeField] Camera _camera;
         [SerializeField] BuildMenu _menu;
+        [SerializeField] SaveGameSystem _saves;
 
         List<ModelDefinition> _palette;
+
+        bool _savesOpen;
+        string _saveName = "My City";
+        string _pendingLoad;
+        Vector2 _saveScroll;
+        List<SaveInfo> _saveList = new List<SaveInfo>();
 
         GUIStyle _panel;
         GUIStyle _label;
@@ -37,13 +45,26 @@ namespace CityBuilder.View
                 _menu = gameObject.AddComponent<BuildMenu>();
             }
 
+            if (_saves == null) _saves = FindAnyObjectByType<SaveGameSystem>();
+            if (_saves == null) _saves = gameObject.AddComponent<SaveGameSystem>();
+            _saves.Changed += RefreshSaveList;
+
             _palette = BuildingPalette.Create();
         }
+
+        void OnDestroy()
+        {
+            if (_saves != null) _saves.Changed -= RefreshSaveList;
+        }
+
+        void RefreshSaveList() => _saveList = _saves.ListSaves();
 
         void OnGUI()
         {
             EnsureStyles();
             DrawBuildButton();
+            DrawSavesButton();
+            if (_savesOpen) DrawSavesPanel();
 
             if (_menu.IsOpen) DrawCategoryMenu();
             if (_menu.Active == BuildCategory.Roads) DrawRoadTypePalette();
@@ -66,6 +87,77 @@ namespace CityBuilder.View
             {
                 _menu.Toggle();
             }
+        }
+
+        void DrawSavesButton()
+        {
+            const float w = 90f;
+            if (GUI.Button(new Rect(Screen.width - w - 16f, 16f, w, 32f), _savesOpen ? "Close" : "Saves",
+                           _savesOpen ? _categoryButtonActive : _categoryButton))
+            {
+                _savesOpen = !_savesOpen;
+                _pendingLoad = null;
+                if (_savesOpen) RefreshSaveList();
+            }
+        }
+
+        /// <summary>Name and save the city, or pick a save to load. F5 / F9 quick-save and quick-load.</summary>
+        void DrawSavesPanel()
+        {
+            const float width = 280f;
+            const float height = 320f;
+            var rect = new Rect(Screen.width - width - 16f, 56f, width, height);
+            GUI.Box(rect, GUIContent.none, _panel);
+
+            GUILayout.BeginArea(new Rect(rect.x + 12f, rect.y + 10f, width - 24f, height - 20f));
+            GUILayout.Label("SAVES", _label);
+
+            GUILayout.BeginHorizontal();
+            _saveName = GUILayout.TextField(_saveName, 40);
+            if (GUILayout.Button("Save", GUILayout.Width(60f)))
+            {
+                _pendingLoad = null;
+                _saves.Save(_saveName);
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.Label("F5 quick-save    F9 quick-load", _label);
+            if (!string.IsNullOrEmpty(_saves.LastMessage)) GUILayout.Label(_saves.LastMessage, _label);
+            GUILayout.Space(4f);
+
+            if (_pendingLoad != null)
+            {
+                // Loading throws the current city away, so it takes a second click.
+                GUILayout.Label($"Load '{_pendingLoad}'? Unsaved changes are lost.", _label);
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Load"))
+                {
+                    _tool?.CancelPending();
+                    _demolish?.CancelPending();
+                    _saves.Load(_pendingLoad);
+                    _pendingLoad = null;
+                }
+                if (GUILayout.Button("Cancel")) _pendingLoad = null;
+                GUILayout.EndHorizontal();
+            }
+            else if (_saveList.Count == 0)
+            {
+                GUILayout.Label("No saves yet", _label);
+            }
+            else
+            {
+                _saveScroll = GUILayout.BeginScrollView(_saveScroll);
+                foreach (SaveInfo save in _saveList)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"{save.Name}  ({save.WrittenUtc.ToLocalTime():g})", _label);
+                    if (GUILayout.Button("Load", GUILayout.Width(56f))) _pendingLoad = save.Name;
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndScrollView();
+            }
+
+            GUILayout.EndArea();
         }
 
         void DrawCategoryMenu()
