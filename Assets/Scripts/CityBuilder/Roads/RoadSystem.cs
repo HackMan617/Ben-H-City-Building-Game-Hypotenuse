@@ -150,6 +150,18 @@ namespace CityBuilder.Roads
             if (History.Redo(Network) != null) Rebuild();
         }
 
+        /// <summary>
+        /// Swaps in a whole new layout, as when a save is loaded: <paramref name="fill"/> writes it into
+        /// the network. The undo history belonged to the old layout, so it goes.
+        /// </summary>
+        public void Replace(System.Action<RoadNetwork> fill)
+        {
+            Network.Clear();
+            fill(Network);
+            History.Clear();
+            Rebuild();
+        }
+
         public void ClearAll()
         {
             Network.Clear();

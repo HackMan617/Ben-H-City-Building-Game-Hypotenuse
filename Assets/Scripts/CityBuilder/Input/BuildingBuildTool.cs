@@ -145,6 +145,14 @@ namespace CityBuilder.BuildTools
             _awaitingConfirm = false;
         }
 
+        /// <summary>Replaces every placed building, as when a save is loaded.</summary>
+        public void ReplacePlaced(IEnumerable<PlacedBuilding> buildings)
+        {
+            CancelPending();
+            _placed.Clear();
+            _placed.AddRange(buildings);
+        }
+
         public void Select(ModelDefinition definition)
         {
             _selected = definition;
