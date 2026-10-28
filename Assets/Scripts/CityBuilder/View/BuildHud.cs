@@ -13,12 +13,22 @@ namespace CityBuilder.View
         [SerializeField] RoadSystem _roads;
         [SerializeField] RoadBuildTool _tool;
         [SerializeField] DemolishTool _demolish;
+        [SerializeField] TerrainTool _terrain;
         [SerializeField] BuildingBuildTool _buildingTool;
         [SerializeField] Camera _camera;
         [SerializeField] BuildMenu _menu;
         [SerializeField] SaveGameSystem _saves;
+        [SerializeField] CameraRig _cameraRig;
+
+        [Tooltip("Show the start screen when the game starts.")]
+        [SerializeField] bool _showStartScreen = true;
 
         List<ModelDefinition> _palette;
+
+        bool _startOpen;
+        bool _startFromGame;
+        Vector2 _startScroll;
+        GUIStyle _title;
 
         bool _savesOpen;
         string _saveName = "My City";
@@ -37,6 +47,7 @@ namespace CityBuilder.View
             if (_roads == null) _roads = FindAnyObjectByType<RoadSystem>();
             if (_tool == null) _tool = FindAnyObjectByType<RoadBuildTool>();
             if (_demolish == null) _demolish = FindAnyObjectByType<DemolishTool>();
+            if (_terrain == null) _terrain = FindAnyObjectByType<TerrainTool>();
             if (_buildingTool == null) _buildingTool = FindAnyObjectByType<BuildingBuildTool>();
             if (_camera == null) _camera = Camera.main;
             if (_menu == null) _menu = FindAnyObjectByType<BuildMenu>();
@@ -49,7 +60,11 @@ namespace CityBuilder.View
             if (_saves == null) _saves = gameObject.AddComponent<SaveGameSystem>();
             _saves.Changed += RefreshSaveList;
 
+            if (_cameraRig == null) _cameraRig = FindAnyObjectByType<CameraRig>();
+
             _palette = BuildingPalette.Create();
+
+            if (_showStartScreen) OpenStartScreen(false);
         }
 
         void OnDestroy()
@@ -62,8 +77,15 @@ namespace CityBuilder.View
         void OnGUI()
         {
             EnsureStyles();
+            if (_startOpen)
+            {
+                DrawStartScreen();
+                return;
+            }
+
             DrawBuildButton();
             DrawSavesButton();
+            DrawMenuButton();
             if (_savesOpen) DrawSavesPanel();
 
             if (_menu.IsOpen) DrawCategoryMenu();
@@ -72,6 +94,7 @@ namespace CityBuilder.View
             if (_menu.Active != BuildCategory.None) DrawToolStatus();
             if (_tool != null && _tool.IsAwaitingConfirm) DrawRoadConfirmPrompt();
             if (_demolish != null && _demolish.IsAwaitingConfirm) DrawDemolishConfirmPrompt();
+            if (_terrain != null && _terrain.IsAwaitingConfirm) DrawTerrainConfirmPrompt();
             if (_buildingTool != null && _buildingTool.IsAwaitingConfirm) DrawBuildingConfirmPrompt();
         }
 
@@ -99,6 +122,123 @@ namespace CityBuilder.View
                 _pendingLoad = null;
                 if (_savesOpen) RefreshSaveList();
             }
+        }
+
+        void DrawMenuButton()
+        {
+            const float w = 80f;
+            if (GUI.Button(new Rect(Screen.width - 90f - 16f - 8f - w, 16f, w, 32f), "Menu", _categoryButton))
+                OpenStartScreen(true);
+        }
+
+        /// <summary>
+        /// Covers the city and stops the tools and camera. <paramref name="fromGame"/> is true when the
+        /// player opened it mid-game, so there is a city to go back to and loading over it asks first.
+        /// </summary>
+        void OpenStartScreen(bool fromGame)
+        {
+            _startOpen = true;
+            _startFromGame = fromGame;
+            _savesOpen = false;
+            _pendingLoad = null;
+
+            _tool?.CancelPending();
+            _demolish?.CancelPending();
+            _terrain?.CancelPending();
+            _buildingTool?.Deselect();
+            _menu.Close();
+            if (_cameraRig != null) _cameraRig.enabled = false;
+
+            RefreshSaveList();
+        }
+
+        void CloseStartScreen()
+        {
+            _startOpen = false;
+            _pendingLoad = null;
+            if (_cameraRig != null) _cameraRig.enabled = true;
+        }
+
+        void LoadFromStart(string name)
+        {
+            if (!_saves.Load(name)) return;   // stays open, showing why
+            _saveName = name;
+            CloseStartScreen();
+        }
+
+        /// <summary>The title screen: start a new city, or carry on with a saved one.</summary>
+        void DrawStartScreen()
+        {
+            GUI.Box(new Rect(0f, 0f, Screen.width, Screen.height), GUIContent.none, _panel);
+
+            const float width = 380f;
+            const float height = 460f;
+            var rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+            GUI.Box(rect, GUIContent.none, _panel);
+
+            GUILayout.BeginArea(new Rect(rect.x + 20f, rect.y + 18f, width - 40f, height - 36f));
+            GUILayout.Label("HYPOTENUSE", _title);
+            GUILayout.Label("City Builder", _label);
+            GUILayout.Space(16f);
+
+            if (_startFromGame && GUILayout.Button("Continue", _buildButton, GUILayout.Height(40f)))
+                CloseStartScreen();
+
+            if (GUILayout.Button("New City", _startFromGame ? _categoryButton : _buildButton, GUILayout.Height(40f)))
+            {
+                if (_startFromGame) _pendingLoad = "";   // empty name: asking about a new city
+                else StartNewCity();
+            }
+
+            GUILayout.Space(14f);
+            GUILayout.Label("SAVED CITIES", _label);
+            if (!string.IsNullOrEmpty(_saves.LastMessage) && _saves.LastMessage.StartsWith("Could not"))
+                GUILayout.Label(_saves.LastMessage, _label);
+
+            if (_pendingLoad != null)
+            {
+                // Mid-game, the city on screen would be thrown away, so it takes a second click.
+                string what = _pendingLoad.Length == 0 ? "Start a new city?" : $"Load '{_pendingLoad}'?";
+                GUILayout.Label($"{what} Unsaved changes are lost.", _label);
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button(_pendingLoad.Length == 0 ? "New City" : "Load", _categoryButtonActive, GUILayout.Height(30f)))
+                {
+                    if (_pendingLoad.Length == 0) StartNewCity();
+                    else LoadFromStart(_pendingLoad);
+                }
+                if (GUILayout.Button("Cancel", _categoryButton, GUILayout.Height(30f))) _pendingLoad = null;
+                GUILayout.EndHorizontal();
+            }
+            else if (_saveList.Count == 0)
+            {
+                GUILayout.Label("No saved cities yet. Save one from the Saves panel in game.", _label);
+            }
+            else
+            {
+                _startScroll = GUILayout.BeginScrollView(_startScroll);
+                foreach (SaveInfo save in _saveList)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"{save.Name}\n{save.WrittenUtc.ToLocalTime():g}", _label);
+                    if (GUILayout.Button("Load", _categoryButton, GUILayout.Width(64f), GUILayout.Height(32f)))
+                    {
+                        if (_startFromGame) _pendingLoad = save.Name;
+                        else LoadFromStart(save.Name);
+                    }
+                    GUILayout.EndHorizontal();
+                    GUILayout.Space(4f);
+                }
+                GUILayout.EndScrollView();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        void StartNewCity()
+        {
+            _saves.NewCity();
+            _saveName = "My City";
+            CloseStartScreen();
         }
 
         /// <summary>Name and save the city, or pick a save to load. F5 / F9 quick-save and quick-load.</summary>
@@ -134,6 +274,7 @@ namespace CityBuilder.View
                 {
                     _tool?.CancelPending();
                     _demolish?.CancelPending();
+                    _terrain?.CancelPending();
                     _saves.Load(_pendingLoad);
                     _pendingLoad = null;
                 }
@@ -206,7 +347,7 @@ namespace CityBuilder.View
                     GUILayout.Label("Left drag: draw    Right drag: erase", _label);
                     GUILayout.Label(pending > 0 ? $"{committed} cells  (+{pending} pending)" : $"{committed} cells", _label);
                     if (_tool != null && _tool.IsDragging && _tool.IsBlocked)
-                        GUILayout.Label("Blocked: overlaps a road", _label);
+                        GUILayout.Label(_tool.IsOffLevel ? "Blocked: slopes climb 1 level, straight" : "Blocked: overlaps a road", _label);
                     break;
                 case BuildCategory.Buildings:
                     if (_buildingTool != null && _buildingTool.Selected != null)
@@ -222,13 +363,20 @@ namespace CityBuilder.View
                     }
                     break;
                 case BuildCategory.Terrain:
-                    GUILayout.Label("Terrain tools coming soon", _label);
+                    GUILayout.Label("Left drag: raise    Right drag: lower", _label);
+                    if (_terrain != null && _terrain.PendingCellCount > 0)
+                    {
+                        string verb = _terrain.IsLowering ? "lower" : "raise";
+                        GUILayout.Label($"{_terrain.PendingCellCount} cells to {verb}", _label);
+                    }
+                    if (_terrain != null && _terrain.BlockedCellCount > 0)
+                        GUILayout.Label($"{_terrain.BlockedCellCount} cells kept: road or building", _label);
                     break;
                 case BuildCategory.Demolish:
                     GUILayout.Label("Left drag: select area to demolish", _label);
-                    int demolishPending = _demolish != null ? _demolish.PendingCellCount : 0;
-                    if (demolishPending > 0)
-                        GUILayout.Label($"{demolishPending} cells to demolish", _label);
+                    string demolishPending = _demolish != null ? DemolishSummary() : "";
+                    if (demolishPending.Length > 0)
+                        GUILayout.Label($"{demolishPending} to demolish", _label);
                     break;
             }
 
@@ -245,9 +393,28 @@ namespace CityBuilder.View
 
         void DrawDemolishConfirmPrompt()
         {
-            int cells = _demolish.PendingCellCount;
-            string label = cells == 1 ? "Demolish 1 cell?" : $"Demolish {cells} cells?";
+            string label = $"Demolish {DemolishSummary()}?";
             DrawConfirmPopup(_demolish.PendingEnd, label, "Demolish", _demolish.ConfirmPending, _demolish.CancelPending);
+        }
+
+        void DrawTerrainConfirmPrompt()
+        {
+            int cells = _terrain.PendingCellCount;
+            string verb = _terrain.IsLowering ? "Lower" : "Raise";
+            string label = cells == 1 ? $"{verb} 1 cell?" : $"{verb} {cells} cells?";
+            DrawConfirmPopup(_terrain.PendingEnd, label, verb, _terrain.ConfirmPending, _terrain.CancelPending);
+        }
+
+        // "3 cells", "1 building", or "3 cells, 1 building"; empty when nothing is marked.
+        string DemolishSummary()
+        {
+            int cells = _demolish.PendingCellCount;
+            int buildings = _demolish.PendingBuildingCount;
+            string cellText = cells == 1 ? "1 cell" : $"{cells} cells";
+            string buildingText = buildings == 1 ? "1 building" : $"{buildings} buildings";
+            if (cells > 0 && buildings > 0) return $"{cellText}, {buildingText}";
+            if (buildings > 0) return buildingText;
+            return cells > 0 ? cellText : "";
         }
 
         void DrawConfirmPopup(Vector3 worldAnchor, string label, string verb,
@@ -375,6 +542,9 @@ namespace CityBuilder.View
             _buildButton.hover.textColor = Color.white;
             _buildButton.active.background = btnActive;
             _buildButton.border = new RectOffset(buildR, buildR, buildR, buildR);
+
+            _title = new GUIStyle(_label) { fontSize = 30, fontStyle = FontStyle.Bold };
+            _title.normal.textColor = Color.white;
         }
 
         static Texture2D RoundedRect(int w, int h, Color fill, int r)

@@ -49,6 +49,9 @@ namespace CityBuilder.BuildTools
         /// <summary>True when the stroke in progress overlaps road it does not join and cannot be built.</summary>
         public bool IsBlocked { get; private set; }
 
+        /// <summary>True when the stroke in progress is blocked because it would break the slope rules (see <see cref="RoadTerrain"/>).</summary>
+        public bool IsOffLevel { get; private set; }
+
         /// <summary>Cells the stroke in progress would add, or remove when erasing.</summary>
         public int PendingCellCount =>
             !_dragging && !_awaitingConfirm ? 0 : _erasing ? _preview.Removed.Count : _preview.Added.Count;
@@ -85,7 +88,7 @@ namespace CityBuilder.BuildTools
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
-            bool onPlane = _grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world);
+            bool onPlane = _grid.TryScreenToSurface(_camera, mouse.position.ReadValue(), out Vector3 world);
             GridCoord cursor = onPlane ? _grid.WorldToCell(world) : default;
             bool onGround = onPlane && _grid.InBounds(cursor);
 
@@ -204,7 +207,8 @@ namespace CityBuilder.BuildTools
         void ShowGhost()
         {
             RoadStroke.Plan(_roads.Network, _path, _erasing, _preview);
-            IsBlocked = !_erasing && RoadStroke.IsBlocked(_roads.Network, _preview);
+            IsOffLevel = !_erasing && RoadTerrain.BreaksSlopes(_roads.Network, _preview, _grid.Terrain);
+            IsBlocked = !_erasing && (RoadStroke.IsBlocked(_roads.Network, _preview) || IsOffLevel);
             _ghost?.Show(_roads.Network, _preview, _grid.Profile, _erasing, IsBlocked);
         }
 

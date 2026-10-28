@@ -39,8 +39,11 @@ namespace CityBuilder.Buildings
             Hide();
         }
 
-        /// <summary>Shows a block over <paramref name="cells"/>, <paramref name="height"/> world units tall.</summary>
-        public void Show(List<GridCoord> cells, float cellSize, float height, bool valid)
+        /// <summary>
+        /// Shows a block over <paramref name="cells"/>, <paramref name="height"/> world units tall,
+        /// standing on <paramref name="baseY"/>.
+        /// </summary>
+        public void Show(List<GridCoord> cells, float cellSize, float height, bool valid, float baseY = 0f)
         {
             if (cells == null || cells.Count == 0)
             {
@@ -53,7 +56,7 @@ namespace CityBuilder.Buildings
             Material mat = valid ? _validMaterial : _blockedMaterial;
             if (mat != null) _renderer.sharedMaterial = mat;
 
-            transform.position = new Vector3(0f, _zOffset, 0f);
+            transform.position = new Vector3(0f, baseY + _zOffset, 0f);
             _renderer.enabled = true;
         }
 

@@ -17,6 +17,10 @@ namespace CityBuilder.View
         static readonly int CellSizeId = Shader.PropertyToID("_CellSize");
 
         [SerializeField] CityGrid _grid;
+
+        [Tooltip("Raised terrain shares the ground's grid material, so it fades its lines with the ground.")]
+        [SerializeField] TerrainView _terrain;
+
         [SerializeField] bool _visible = true;
         [SerializeField] Key _toggleKey = Key.G;
         [SerializeField] float _fadeSpeed = 10f;
@@ -36,10 +40,13 @@ namespace CityBuilder.View
             _renderer = GetComponent<MeshRenderer>();
             _block = new MaterialPropertyBlock();
             if (_grid == null) _grid = FindAnyObjectByType<CityGrid>();
+            if (_terrain == null) _terrain = FindAnyObjectByType<TerrainView>();
 
             _strength = _visible ? 1f : 0f;
-            Apply();
         }
+
+        // In Start rather than Awake: the terrain's renderer is only fetched in its own Awake.
+        void Start() => Apply();
 
         void Update()
         {
@@ -59,6 +66,9 @@ namespace CityBuilder.View
             _block.SetFloat(GridStrengthId, _strength);
             if (_grid != null) _block.SetFloat(CellSizeId, _grid.CellSize);
             _renderer.SetPropertyBlock(_block);
+
+            // Submesh 0 only: the cliff material has no grid to fade.
+            if (_terrain != null && _terrain.Renderer != null) _terrain.Renderer.SetPropertyBlock(_block, 0);
         }
     }
 }

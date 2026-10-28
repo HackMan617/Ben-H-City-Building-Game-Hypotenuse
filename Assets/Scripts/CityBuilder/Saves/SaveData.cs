@@ -5,7 +5,7 @@ namespace CityBuilder.Saves
 {
     /// <summary>
     /// A saved city, as written to its JSON file by <see cref="CitySave"/>. Only what the player made
-    /// is kept -- road cells, the links between them, buildings and the road type -- never geometry,
+    /// is kept -- road cells, the links between them, buildings, terrain levels and the road type -- never geometry,
     /// which is rebuilt on load.
     ///
     /// Links are kept the way <see cref="Roads.RoadLink"/> stores them, always pointing N, NE, E or
@@ -28,6 +28,16 @@ namespace CityBuilder.Saves
         public List<GridCoord> RoadCells = new List<GridCoord>();
         public List<SavedLink> RoadLinks = new List<SavedLink>();
         public List<SavedBuilding> Buildings = new List<SavedBuilding>();
+
+        /// <summary>Raised cells only; anything missing is level 0, so older saves load flat.</summary>
+        public List<SavedLevel> Terrain = new List<SavedLevel>();
+    }
+
+    public sealed class SavedLevel
+    {
+        public int X;
+        public int Z;
+        public int Level;
     }
 
     public sealed class SavedLink

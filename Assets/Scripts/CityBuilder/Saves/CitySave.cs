@@ -27,7 +27,8 @@ namespace CityBuilder.Saves
             MissingMemberHandling = MissingMemberHandling.Ignore,
         };
 
-        public static SaveData Capture(RoadNetwork roads, IEnumerable<PlacedBuilding> buildings, string roadType)
+        public static SaveData Capture(RoadNetwork roads, IEnumerable<PlacedBuilding> buildings, string roadType,
+                                       TerrainMap terrain = null)
         {
             var data = new SaveData
             {
@@ -61,7 +62,26 @@ namespace CityBuilder.Saves
                 });
             }
 
+            if (terrain != null)
+            {
+                foreach (KeyValuePair<GridCoord, int> pair in terrain.Raised)
+                {
+                    data.Terrain.Add(new SavedLevel { X = pair.Key.X, Z = pair.Key.Z, Level = pair.Value });
+                }
+            }
+
             return data;
+        }
+
+        /// <summary>Replaces <paramref name="terrain"/> with the saved levels.</summary>
+        public static void RestoreTerrain(SaveData data, TerrainMap terrain)
+        {
+            var levels = new List<KeyValuePair<GridCoord, int>>();
+            foreach (SavedLevel saved in data.Terrain)
+            {
+                levels.Add(new KeyValuePair<GridCoord, int>(new GridCoord(saved.X, saved.Z), saved.Level));
+            }
+            terrain.Replace(levels);
         }
 
         /// <summary>
@@ -142,6 +162,7 @@ namespace CityBuilder.Saves
             data.RoadCells ??= new List<GridCoord>();
             data.RoadLinks ??= new List<SavedLink>();
             data.Buildings ??= new List<SavedBuilding>();
+            data.Terrain ??= new List<SavedLevel>();
             return data;
         }
     }

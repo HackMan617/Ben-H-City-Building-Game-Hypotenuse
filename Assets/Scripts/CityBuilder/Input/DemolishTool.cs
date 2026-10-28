@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CityBuilder.Buildings;
 using CityBuilder.Grid;
 using CityBuilder.Roads;
 using CityBuilder.View;
@@ -9,8 +10,8 @@ using UnityEngine.InputSystem;
 namespace CityBuilder.BuildTools
 {
     /// <summary>
-    /// Drag a rectangle to mark cells for demolition, then confirm. Erases roads and (future)
-    /// buildings on every cell inside the rectangle.
+    /// Drag a rectangle to mark cells for demolition, then confirm. Erases roads on every cell
+    /// inside the rectangle, and every building with any cell inside it.
     /// </summary>
     public class DemolishTool : MonoBehaviour
     {
@@ -19,9 +20,13 @@ namespace CityBuilder.BuildTools
         [SerializeField] RoadGhost _ghost;
         [SerializeField] Camera _camera;
         [SerializeField] BuildMenu _buildMenu;
+        [SerializeField] BuildingBuildTool _buildings;
+        [SerializeField] BuildingGhost _buildingGhost;
 
         readonly List<GridCoord> _cells = new List<GridCoord>();
         readonly RoadEdit _preview = new RoadEdit();
+        readonly List<PlacedBuilding> _doomed = new List<PlacedBuilding>();
+        readonly List<GridCoord> _doomedCells = new List<GridCoord>();
 
         GridCoord _corner;
         GridCoord _cursor;
@@ -31,6 +36,7 @@ namespace CityBuilder.BuildTools
         public bool IsDragging => _dragging;
         public bool IsAwaitingConfirm => _awaitingConfirm;
         public int PendingCellCount => _preview.Removed.Count;
+        public int PendingBuildingCount => _doomed.Count;
 
         public Vector3 PendingEnd =>
             _cells.Count > 0 ? _grid.CellToWorld(_cells[_cells.Count - 1]) : Vector3.zero;
@@ -42,6 +48,8 @@ namespace CityBuilder.BuildTools
             if (_ghost == null) _ghost = FindAnyObjectByType<RoadGhost>();
             if (_camera == null) _camera = Camera.main;
             if (_buildMenu == null) _buildMenu = FindAnyObjectByType<BuildMenu>();
+            if (_buildings == null) _buildings = FindAnyObjectByType<BuildingBuildTool>();
+            if (_buildingGhost == null) _buildingGhost = FindAnyObjectByType<BuildingGhost>();
         }
 
         void Update()
@@ -65,7 +73,7 @@ namespace CityBuilder.BuildTools
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
-            bool onPlane = _grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world);
+            bool onPlane = _grid.TryScreenToSurface(_camera, mouse.position.ReadValue(), out Vector3 world);
             GridCoord cursor = onPlane ? _grid.WorldToCell(world) : default;
             bool onGround = onPlane && _grid.InBounds(cursor);
 
@@ -83,7 +91,7 @@ namespace CityBuilder.BuildTools
         {
             if (!onGround)
             {
-                _ghost?.Hide();
+                HideGhosts();
                 return;
             }
 
@@ -120,7 +128,7 @@ namespace CityBuilder.BuildTools
 
             if (mouse.leftButton.wasReleasedThisFrame)
             {
-                if (_preview.Removed.Count == 0)
+                if (_preview.Removed.Count == 0 && _doomed.Count == 0)
                 {
                     CancelDrag();
                     return;
@@ -162,6 +170,7 @@ namespace CityBuilder.BuildTools
         {
             if (!_awaitingConfirm) return;
             _roads.ApplyStroke(_cells, true);
+            _buildings?.Remove(_doomed);
             CancelDrag();
         }
 
@@ -175,6 +184,30 @@ namespace CityBuilder.BuildTools
         {
             RoadStroke.Plan(_roads.Network, _cells, true, _preview);
             _ghost?.Show(_roads.Network, _preview, _grid.Profile, true);
+
+            if (_buildings != null) _buildings.FindTouching(_cells, _doomed);
+            _doomedCells.Clear();
+            float bottom = float.MaxValue;
+            float top = 0f;
+            foreach (PlacedBuilding building in _doomed)
+            {
+                _doomedCells.AddRange(building.Cells);
+                float ground = _grid.HeightAt(building.Anchor);
+                bottom = Mathf.Min(bottom, ground);
+                top = Mathf.Max(top, ground + building.Definition.Footprint.Height * _grid.CellSize);
+            }
+
+            // One ghost covers every doomed building, from the lowest one's ground to the tallest one's roof.
+            if (_doomedCells.Count > 0)
+                _buildingGhost?.Show(_doomedCells, _grid.CellSize, top - bottom, false, bottom);
+            else
+                _buildingGhost?.Hide();
+        }
+
+        void HideGhosts()
+        {
+            _ghost?.Hide();
+            _buildingGhost?.Hide();
         }
 
         void CancelDrag()
@@ -183,7 +216,8 @@ namespace CityBuilder.BuildTools
             _awaitingConfirm = false;
             _cells.Clear();
             _preview.Clear();
-            _ghost?.Hide();
+            _doomed.Clear();
+            HideGhosts();
         }
     }
 }

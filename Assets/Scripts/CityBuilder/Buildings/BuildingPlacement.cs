@@ -32,6 +32,9 @@ namespace CityBuilder.Buildings
 
         /// <summary>The city already has as many as maxCount allows.</summary>
         LimitReached = 1 << 6,
+
+        /// <summary>The footprint spans more than one terrain level.</summary>
+        Uneven = 1 << 7,
     }
 
     /// <summary>
@@ -78,12 +81,23 @@ namespace CityBuilder.Buildings
         /// </summary>
         public static PlacementProblem Check(ModelDefinition definition, GridCoord at, int rotation,
                                              Func<GridCoord, bool> inBounds, IRoadQuery roads,
-                                             IReadOnlyCollection<PlacedBuilding> buildings)
+                                             IReadOnlyCollection<PlacedBuilding> buildings,
+                                             Func<GridCoord, int> levelAt = null)
         {
             var problems = PlacementProblem.None;
             PlacementRules rules = definition.Placement;
 
             List<GridCoord> cells = CellsAt(definition.Footprint, at, rotation);
+
+            // Left out, levelAt takes the ground as flat.
+            if (levelAt != null && cells.Count > 0)
+            {
+                int level = levelAt(cells[0]);
+                foreach (GridCoord cell in cells)
+                {
+                    if (levelAt(cell) != level) problems |= PlacementProblem.Uneven;
+                }
+            }
             var own = new HashSet<GridCoord>(cells);
             var occupied = new HashSet<GridCoord>();
             foreach (PlacedBuilding building in buildings)

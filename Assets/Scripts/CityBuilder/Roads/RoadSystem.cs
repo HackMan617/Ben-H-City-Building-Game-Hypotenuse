@@ -83,6 +83,9 @@ namespace CityBuilder.Roads
             view.transform.SetParent(transform, false);
             _splineView = view.AddComponent<SplineContainer>();
             _splineView.Splines = _splines;
+
+            // Road stands on the terrain, so a terrain change (a save loading, say) moves it too.
+            if (_grid != null) _grid.Terrain.Changed += Rebuild;
         }
 
         async void Start()
@@ -134,6 +137,7 @@ namespace CityBuilder.Roads
             var edit = new RoadEdit();
             RoadStroke.Plan(Network, cells, erase, edit, _grid.InBounds);
             if (edit.IsEmpty || RoadStroke.IsBlocked(Network, edit)) return;
+            if (!erase && RoadTerrain.BreaksSlopes(Network, edit, _grid.Terrain)) return;
 
             edit.Apply(Network);
             History.Record(edit);
@@ -177,6 +181,7 @@ namespace CityBuilder.Roads
             _buffers.Clear(_roadMaterial);
             _splines.Clear();
             RoadGeometry.Build(_buffers, Network, _scratch, _grid.Profile, _models, _splines);
+            RoadTerrain.Lift(_buffers, _grid, Network);
             _buffers.WriteTo(_mesh);
 
             _materials.Clear();
@@ -189,6 +194,7 @@ namespace CityBuilder.Roads
 
         void OnDestroy()
         {
+            if (_grid != null) _grid.Terrain.Changed -= Rebuild;
             if (_mesh != null) Destroy(_mesh);
         }
     }

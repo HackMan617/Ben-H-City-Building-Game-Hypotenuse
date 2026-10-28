@@ -23,6 +23,8 @@ namespace CityBuilder.Roads
         [Tooltip("Lifts the preview clear of committed road so the two do not z-fight.")]
         [SerializeField] float _zOffset = 0.004f;
 
+        [SerializeField] CityGrid _grid;
+
         readonly List<GridCoord> _visible = new List<GridCoord>();
         readonly HashSet<GridCoord> _visibleSet = new HashSet<GridCoord>();
         readonly RoadMeshBuffers _buffers = new RoadMeshBuffers();
@@ -36,6 +38,7 @@ namespace CityBuilder.Roads
         {
             _filter = GetComponent<MeshFilter>();
             _renderer = GetComponent<MeshRenderer>();
+            if (_grid == null) _grid = FindAnyObjectByType<CityGrid>();
 
             _mesh = new Mesh { name = "RoadGhost" };
             _mesh.MarkDynamic();
@@ -94,6 +97,7 @@ namespace CityBuilder.Roads
             // material covers all of it.
             _buffers.Clear(null);
             RoadGeometry.Build(_buffers, query, _visible, profile, null);
+            if (_grid != null) RoadTerrain.Lift(_buffers, _grid, query);
             _buffers.WriteTo(_mesh);
 
             Material material = erase ? _eraseMaterial

@@ -51,6 +51,11 @@ namespace CityBuilder.Roads
             return _triangles[_used++];
         }
 
+        public int SubmeshCount => _used;
+
+        /// <summary>The triangle list of submesh <paramref name="index"/>.</summary>
+        public List<int> Submesh(int index) => _triangles[index];
+
         /// <summary>The material for each submesh, in order. The base slot may be null.</summary>
         public IReadOnlyList<Material> Materials => _materials;
 

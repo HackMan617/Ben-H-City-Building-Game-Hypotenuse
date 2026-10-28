@@ -54,7 +54,8 @@ namespace CityBuilder.Saves
             if (_roads == null || _roads.Network == null) return Report(false, "Nothing to save: no road system.");
 
             IEnumerable<PlacedBuilding> buildings = _buildings != null ? _buildings.Placed : Array.Empty<PlacedBuilding>();
-            SaveData data = CitySave.Capture(_roads.Network, buildings, _roads.SelectedRoadType?.Name);
+            SaveData data = CitySave.Capture(_roads.Network, buildings, _roads.SelectedRoadType?.Name,
+                                             _roads.Grid != null ? _roads.Grid.Terrain : null);
 
             try
             {
@@ -81,6 +82,9 @@ namespace CityBuilder.Saves
             }
 
             _problems.Clear();
+
+            // Terrain first: the roads are lifted onto it as they rebuild.
+            if (_roads.Grid != null) CitySave.RestoreTerrain(data, _roads.Grid.Terrain);
             _roads.Replace(network => CitySave.RestoreRoads(data, network, _problems));
             _buildings?.ReplacePlaced(CitySave.RestoreBuildings(data, _models, _problems));
 
@@ -97,6 +101,17 @@ namespace CityBuilder.Saves
             string message = $"Loaded '{SaveFiles.CleanName(name)}'";
             if (_problems.Count > 0) message += $" ({_problems.Count} items dropped, see console)";
             return Report(true, message);
+        }
+
+        /// <summary>Clears the city back to empty, flat ground: no roads, buildings or raised terrain.</summary>
+        public void NewCity()
+        {
+            if (_roads == null) return;
+
+            _roads.Grid?.Terrain.Clear();
+            _roads.ClearAll();
+            _buildings?.ReplacePlaced(Array.Empty<PlacedBuilding>());
+            Report(true, "Started a new city");
         }
 
         bool Report(bool ok, string message)

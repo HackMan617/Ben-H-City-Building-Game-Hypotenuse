@@ -202,6 +202,7 @@ MonoBehaviour:
   _validMaterial: {fileID: 2100000, guid: 414ae548c84cd28469a22d2e47a9ba1d, type: 2}
   _blockedMaterial: {fileID: 2100000, guid: 508dc1d2673dfdf4eb43f9ad6fc5d710, type: 2}
   _zOffset: 0.005
+  _inset: 0.04
 --- !u!23 &125757673
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -417,9 +418,11 @@ MonoBehaviour:
   _roads: {fileID: 1483250039}
   _tool: {fileID: 209187550}
   _demolish: {fileID: 0}
+  _terrain: {fileID: 0}
   _buildingTool: {fileID: 0}
   _camera: {fileID: 0}
   _menu: {fileID: 0}
+  _saves: {fileID: 0}
 --- !u!114 &209187550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -469,6 +472,8 @@ MonoBehaviour:
   _ghost: {fileID: 0}
   _camera: {fileID: 0}
   _buildMenu: {fileID: 0}
+  _buildings: {fileID: 0}
+  _buildingGhost: {fileID: 0}
 --- !u!114 &209187553
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -481,6 +486,162 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1b4eafa7844748498b0b133687cff71, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.View.BuildMenu
+--- !u!1 &236635093
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 236635094}
+  - component: {fileID: 236635097}
+  - component: {fileID: 236635096}
+  - component: {fileID: 236635095}
+  m_Layer: 0
+  m_Name: Terrain
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &236635094
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236635093}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &236635095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236635093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e0e3fc828dc39f4a82187bb2e448d0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.View.TerrainView
+  _grid: {fileID: 1955335906}
+  _topMaterial: {fileID: 2100000, guid: 901f5ee4fbe321d44bf2075902041326, type: 2}
+  _cliffMaterial: {fileID: 2100000, guid: c10d772927e633347b8a7725dbd407c9, type: 2}
+--- !u!23 &236635096
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236635093}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 0}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &236635097
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 236635093}
+  m_Mesh: {fileID: 0}
+--- !u!1 &416394930
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 416394931}
+  - component: {fileID: 416394932}
+  m_Layer: 0
+  m_Name: TerrainTool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &416394931
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 416394930}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &416394932
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 416394930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a9d37e72dc671f45a8c235385bab671, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.BuildTools.TerrainTool
+  _grid: {fileID: 0}
+  _roads: {fileID: 0}
+  _buildings: {fileID: 0}
+  _ghost: {fileID: 0}
+  _camera: {fileID: 0}
+  _buildMenu: {fileID: 0}
 --- !u!1 &1296615624
 GameObject:
   m_ObjectHideFlags: 0
@@ -640,6 +801,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.View.GridOverlay
   _grid: {fileID: 1955335906}
+  _terrain: {fileID: 0}
   _visible: 1
   _toggleKey: 21
   _fadeSpeed: 10
@@ -748,6 +910,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CityBuilder.Roads.RoadSystem
   _grid: {fileID: 1955335906}
   _roadMaterial: {fileID: 2100000, guid: b21dedb2df529ba499aeff7a2aaafb8e, type: 2}
+  _useRoadModels: 1
+  _startRoadType: basicroad
 --- !u!23 &1483250040
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -855,6 +1019,7 @@ MonoBehaviour:
   _eraseMaterial: {fileID: 2100000, guid: 3b45eb2de6dcb7b49bb45a94882f7365, type: 2}
   _blockedMaterial: {fileID: 2100000, guid: 483f673bacb6402c8360d6e596af975f, type: 2}
   _zOffset: 0.004
+  _grid: {fileID: 0}
 --- !u!23 &1798993889
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -961,6 +1126,7 @@ MonoBehaviour:
     WidthFraction: 1
     Height: 0.06
   _halfExtent: 60
+  _levelHeight: 0.5
 --- !u!4 &1955335907
 Transform:
   m_ObjectHideFlags: 0
@@ -989,3 +1155,5 @@ SceneRoots:
   - {fileID: 209187551}
   - {fileID: 125757675}
   - {fileID: 64439296}
+  - {fileID: 236635094}
+  - {fileID: 416394931}

@@ -24,6 +24,7 @@ namespace CityBuilder.BuildTools
         ModelDefinition _selected;
         int _rotation;
         bool _awaitingConfirm;
+        bool _wasActive;
         GridCoord _confirmCell;
         PlacementProblem _lastProblem;
 
@@ -55,12 +56,19 @@ namespace CityBuilder.BuildTools
 
             bool active = _buildMenu != null && _buildMenu.Active == BuildCategory.Buildings;
 
+            // The demolish tool borrows the ghost while this tool is inactive, so only hide it on
+            // the frame this tool loses focus, not every frame after.
             if (!active)
             {
-                if (_awaitingConfirm) CancelPending();
-                if (_selected != null) HideGhost();
+                if (_wasActive)
+                {
+                    CancelPending();
+                    HideGhost();
+                    _wasActive = false;
+                }
                 return;
             }
+            _wasActive = true;
 
             if (_selected == null)
             {
@@ -93,7 +101,7 @@ namespace CityBuilder.BuildTools
 
             // Off the map the ghost still follows the cursor, drawn as blocked by the bounds check
             // below. Pointing at the sky there is no cell to show, so it stays where it last was.
-            if (!_grid.TryScreenToWorld(_camera, mouse.position.ReadValue(), out Vector3 world))
+            if (!_grid.TryScreenToSurface(_camera, mouse.position.ReadValue(), out Vector3 world))
                 return;
 
             GridCoord cursor = _grid.WorldToCell(world);
@@ -103,10 +111,11 @@ namespace CityBuilder.BuildTools
 
             _lastProblem = BuildingPlacement.Check(
                 _selected, cursor, _rotation,
-                _grid.InBounds, _roads.Network, _placed);
+                _grid.InBounds, _roads.Network, _placed, _grid.Terrain.LevelAt);
 
             bool valid = _lastProblem == PlacementProblem.None;
-            _ghost?.Show(_previewCells, _grid.CellSize, _selected.Footprint.Height * _grid.CellSize, valid);
+            _ghost?.Show(_previewCells, _grid.CellSize, _selected.Footprint.Height * _grid.CellSize, valid,
+                         _grid.HeightAt(cursor));
 
             if (mouse.leftButton.wasPressedThisFrame && valid)
             {
@@ -143,6 +152,27 @@ namespace CityBuilder.BuildTools
         public void CancelPending()
         {
             _awaitingConfirm = false;
+        }
+
+        /// <summary>Fills <paramref name="result"/> with every building covering any of <paramref name="cells"/>.</summary>
+        public void FindTouching(IEnumerable<GridCoord> cells, List<PlacedBuilding> result)
+        {
+            result.Clear();
+            var area = new HashSet<GridCoord>(cells);
+            foreach (PlacedBuilding building in _placed)
+            {
+                foreach (GridCoord cell in building.Cells)
+                {
+                    if (!area.Contains(cell)) continue;
+                    result.Add(building);
+                    break;
+                }
+            }
+        }
+
+        public void Remove(IEnumerable<PlacedBuilding> buildings)
+        {
+            foreach (PlacedBuilding building in buildings) _placed.Remove(building);
         }
 
         /// <summary>Replaces every placed building, as when a save is loaded.</summary>
